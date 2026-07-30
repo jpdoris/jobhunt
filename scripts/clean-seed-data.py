@@ -28,7 +28,7 @@ STATUS_MAP = {
     "Interviewed (1)": "Interviewed (round 1)",
     "Interviewed (2)": "Interviewed (round 2)",
     "Rejected": "Rejected",
-    "N/A": "Closed / Not pursued",
+    "N/A": "Expired / Not pursued",
 }
 
 NEXT_STEP_MAP = {
@@ -44,17 +44,12 @@ TERMINAL = {
     "Offer declined",
     "Offer accepted",
     "Rejected",
-    "Closed / Not pursued",
-    "Job listing closed",
+    "Expired / Not pursued",
 }
 
-# Rows the source spreadsheet recorded ambiguously, keyed by (company, apply date)
-# so the override survives re-exports that shift row numbers.
-ROW_OVERRIDES = {
-    # Recorded as Applied/Completed, which contradict each other. The listing
-    # was pulled before a decision came back.
-    ("Tekmetric", "6/20/2026"): ("Job listing closed", "None"),
-}
+# Where an open application was marked finished with no decision recorded. In
+# practice that meant the posting was pulled.
+CLOSED_WITHOUT_DECISION = "Expired / Not pursued"
 
 FIELDS = [
     "company",
@@ -111,21 +106,26 @@ def main():
                 stats["link_conflict"] += 1
             notes = ""
 
-        override = ROW_OVERRIDES.get((row["Company"], row["Apply Date"]))
-        if override:
-            status, next_step = override
-            stats["overridden"] += 1
-        else:
-            status = STATUS_MAP[row["Status"]]
-            next_step = NEXT_STEP_MAP[row["Next Steps"]]
+        status = STATUS_MAP[row["Status"]]
+        next_step = NEXT_STEP_MAP[row["Next Steps"]]
 
-            if status in TERMINAL and next_step != "None":
-                notes_.append(
-                    f"row {line}: {row['Company']} — terminal status {row['Status']!r} "
-                    f"with next step {row['Next Steps']!r}; next step set to None"
-                )
-                next_step = "None"
-                stats["terminal_next_step_reset"] += 1
+        # "Completed" means the process ended. Against a terminal status that
+        # agrees, and only the next step needs clearing. Against an open status
+        # it contradicts: the application finished with no decision recorded.
+        if row["Next Steps"] == "Completed" and status not in TERMINAL:
+            notes_.append(
+                f"row {line}: open status {row['Status']!r} marked 'Completed'; "
+                f"recorded as {CLOSED_WITHOUT_DECISION!r}"
+            )
+            status = CLOSED_WITHOUT_DECISION
+            stats["closed_without_decision"] += 1
+        elif status in TERMINAL and next_step != "None":
+            notes_.append(
+                f"row {line}: terminal status {row['Status']!r} with next step "
+                f"{row['Next Steps']!r}; next step set to None"
+            )
+            next_step = "None"
+            stats["terminal_next_step_reset"] += 1
 
         if not row["Role"]:
             stats["missing_role"] += 1

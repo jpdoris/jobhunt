@@ -8,7 +8,8 @@ and when, keeps unemployment proof-of-search filings straight, and exports the
 current filtered view to CSV.
 
 - **Requirements** — [docs/PRD.md](docs/PRD.md)
-- **Data model** — [docs/schema.sql](docs/schema.sql) (canonical and executable)
+- **Data model** — [docs/schema.sql](docs/schema.sql) (readable snapshot)
+- **Schema changes** — [migrations/](migrations/) (numbered, applied in order)
 
 ## Prerequisites
 
@@ -79,7 +80,9 @@ there. The import is idempotent: running it twice leaves one copy, not two.
 | `npm run dev` | Dev server on 127.0.0.1:3000 |
 | `npm run build` | Production build into `.output/` |
 | `npm test` | Vitest |
-| `npm run db:migrate` | Apply `docs/schema.sql` (`-- --force` drops and recreates) |
+| `npm run db:migrate` | Apply pending migrations |
+| `npm run db:status` | List applied / pending migrations |
+| `npm run db:reset` | **Destructive** — drop everything and re-apply |
 | `npm run db:seed <email>` | Load `data/seed-applications.csv` for that account |
 | `npm run user:create <email>` | Create an account; refuses if it already exists |
 | `npm run user:reset <email>` | Reset a password; confirms first |

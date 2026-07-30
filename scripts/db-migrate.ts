@@ -1,41 +1,63 @@
 /**
- * Applies docs/schema.sql to the database.
+ * Applies pending migrations from migrations/.
  *
- * docs/schema.sql is the canonical data model (see docs/PRD.md), so it is
- * executed rather than duplicated here. The script is a full create — it
- * refuses to run against a database that already has tables unless --force is
- * passed, which drops everything first.
+ *   npm run db:migrate            apply anything not yet applied
+ *   npm run db:migrate -- --status  list applied / pending, change nothing
+ *   npm run db:migrate -- --reset   DESTRUCTIVE: drop everything and re-apply
  *
- *   npm run db:migrate
- *   npm run db:migrate -- --force     # destructive: drops and recreates
+ * Each file runs in its own transaction, so a failure leaves the database on
+ * the last complete migration rather than half-way through one.
+ *
+ * Applied migrations are checksummed. Editing a file that has already run is a
+ * mistake — the databases that ran the old version will never see the edit —
+ * so this refuses to continue and tells you to add a new migration instead.
+ *
+ * docs/schema.sql stays the readable picture of the current schema. It is not
+ * executed here; tests/schema-drift.test.ts asserts the two agree.
  */
-import { readFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { readFileSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { closeDatabase, databasePath, useDatabase } from '../server/database/index.ts'
 
-const force = process.argv.includes('--force')
+const MIGRATIONS_DIR = resolve(process.cwd(), 'migrations')
+
 const db = useDatabase()
+const statusOnly = process.argv.includes('--status')
+const reset = process.argv.includes('--reset')
 
-const existing = db
-  .prepare(
-    `SELECT name FROM sqlite_master
-     WHERE type = 'table' AND name NOT LIKE 'sqlite_%'`,
-  )
-  .all() as { name: string }[]
-
-if (existing.length && !force) {
-  console.error(
-    `Database at ${databasePath()} already has ${existing.length} tables.\n` +
-      `Re-run with --force to drop and recreate (this deletes all data).`,
-  )
-  process.exit(1)
+function migrationFiles(): { name: string; sql: string; checksum: string }[] {
+  return readdirSync(MIGRATIONS_DIR)
+    .filter((f) => f.endsWith('.sql'))
+    .sort()
+    .map((name) => {
+      const sql = readFileSync(resolve(MIGRATIONS_DIR, name), 'utf8')
+      return { name, sql, checksum: createHash('sha256').update(sql).digest('hex').slice(0, 16) }
+    })
 }
 
-if (existing.length && force) {
-  console.log(`Dropping ${existing.length} existing tables…`)
-  db.pragma('foreign_keys = OFF')
-  // Views and triggers go with their tables; FTS shadow tables are dropped by
-  // dropping the virtual table itself, so filter them out to avoid errors.
+function ensureLedger(): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS schema_migration (
+      name       TEXT PRIMARY KEY,
+      checksum   TEXT NOT NULL,
+      applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `)
+}
+
+function userTables(): string[] {
+  return (
+    db
+      .prepare(
+        `SELECT name FROM sqlite_master
+         WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name != 'schema_migration'`,
+      )
+      .all() as { name: string }[]
+  ).map((r) => r.name)
+}
+
+function dropEverything(): void {
   const virtual = new Set(
     (
       db
@@ -46,25 +68,109 @@ if (existing.length && force) {
         .all() as { name: string }[]
     ).map((r) => r.name),
   )
-  const shadowOf = (n: string) => [...virtual].some((v) => n.startsWith(`${v}_`))
+  // FTS shadow tables vanish with their virtual table; dropping them directly errors.
+  const isShadow = (n: string) => !virtual.has(n) && [...virtual].some((v) => n.startsWith(`${v}_`))
+
+  db.pragma('foreign_keys = OFF')
   db.transaction(() => {
-    for (const { name } of existing) {
-      if (shadowOf(name) && !virtual.has(name)) continue
+    for (const name of [...userTables(), 'schema_migration']) {
+      if (isShadow(name)) continue
       db.exec(`DROP TABLE IF EXISTS "${name}"`)
     }
   })()
   db.pragma('foreign_keys = ON')
 }
 
-const schema = readFileSync(resolve(process.cwd(), 'docs/schema.sql'), 'utf8')
-db.exec(schema)
+if (reset) {
+  console.log('Dropping all tables…')
+  dropEverything()
+}
 
-const tables = db
-  .prepare(
-    `SELECT count(*) AS n FROM sqlite_master
-     WHERE type = 'table' AND name NOT LIKE 'sqlite_%'`,
+ensureLedger()
+
+const files = migrationFiles()
+if (!files.length) {
+  console.error(`No .sql files in ${MIGRATIONS_DIR}`)
+  process.exit(1)
+}
+
+const applied = new Map(
+  (
+    db.prepare('SELECT name, checksum, applied_at FROM schema_migration').all() as {
+      name: string
+      checksum: string
+      applied_at: string
+    }[]
+  ).map((r) => [r.name, r]),
+)
+
+// A database built before migrations existed already has the 0001 schema; running
+// it again would fail on "table already exists". Record it as applied instead.
+if (!applied.size && userTables().length) {
+  const first = files[0]!
+  console.log(
+    `Existing schema found with no migration ledger.\n` +
+      `Baselining: recording ${first.name} as already applied (nothing is executed).`,
   )
-  .get() as { n: number }
+  db.prepare('INSERT INTO schema_migration (name, checksum) VALUES (?, ?)').run(
+    first.name,
+    first.checksum,
+  )
+  applied.set(first.name, { name: first.name, checksum: first.checksum, applied_at: 'baselined' })
+}
 
-console.log(`Schema applied to ${databasePath()} — ${tables.n} tables.`)
+// Editing an applied migration silently desynchronizes every other database.
+const drifted = files.filter((f) => applied.has(f.name) && applied.get(f.name)!.checksum !== f.checksum)
+if (drifted.length) {
+  console.error(
+    `These migrations changed after being applied:\n` +
+      drifted.map((f) => `  ${f.name}`).join('\n') +
+      `\n\nDatabases that already ran them will never see the edit. Revert the file\n` +
+      `and add a new migration instead.`,
+  )
+  closeDatabase()
+  process.exit(1)
+}
+
+const pending = files.filter((f) => !applied.has(f.name))
+
+if (statusOnly) {
+  console.log(`Database: ${databasePath()}\n`)
+  for (const f of files) {
+    const a = applied.get(f.name)
+    console.log(`  ${a ? '[applied]' : '[pending]'} ${f.name}${a ? `  ${a.applied_at}` : ''}`)
+  }
+  closeDatabase()
+  process.exit(0)
+}
+
+if (!pending.length) {
+  console.log(`Up to date — ${applied.size} migration(s) applied.`)
+  closeDatabase()
+  process.exit(0)
+}
+
+for (const f of pending) {
+  process.stdout.write(`Applying ${f.name}… `)
+  try {
+    // exec() cannot run inside better-sqlite3's transaction() wrapper, so drive
+    // the transaction explicitly.
+    db.exec('BEGIN')
+    db.exec(f.sql)
+    db.prepare('INSERT INTO schema_migration (name, checksum) VALUES (?, ?)').run(
+      f.name,
+      f.checksum,
+    )
+    db.exec('COMMIT')
+    console.log('ok')
+  } catch (error) {
+    db.exec('ROLLBACK')
+    console.log('failed')
+    console.error(`\n${(error as Error).message}\n\nDatabase left at the previous migration.`)
+    closeDatabase()
+    process.exit(1)
+  }
+}
+
+console.log(`\n${pending.length} migration(s) applied to ${databasePath()}.`)
 closeDatabase()

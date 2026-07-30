@@ -41,13 +41,18 @@ Violating any of these is a bug, not a style preference.
    append to it on every status change. Writing to it by hand produces duplicate
    or contradictory history. Just update `application.status_id`.
 
+8. **Schema changes are a new migration, never an edit to an applied one.** Add
+   `migrations/NNNN_description.sql` *and* update `docs/schema.sql` to match.
+   `db:migrate` checksums applied files and refuses to run if one changed, and
+   `tests/schema-drift.test.ts` fails if the two sources disagree.
+
 ## Dates vs. instants
 
-| Column | Kind | Format | Converts? |
-|---|---|---|---|
-| `apply_date` | Floating calendar date | `YYYY-MM-DD` | **Never** |
-| `next_step_date_time` | UTC instant | `YYYY-MM-DD HH:MM:SS` | **Always** → viewer's local zone |
-| `created_at`, `updated_at` | UTC instant | `YYYY-MM-DD HH:MM:SS` | Not user-facing |
+| Column                     | Kind                   | Format                | Converts?                        |
+| -------------------------- | ---------------------- | --------------------- | -------------------------------- |
+| `apply_date`               | Floating calendar date | `YYYY-MM-DD`          | **Never**                        |
+| `next_step_date_time`      | UTC instant            | `YYYY-MM-DD HH:MM:SS` | **Always** → viewer's local zone |
+| `created_at`, `updated_at` | UTC instant            | `YYYY-MM-DD HH:MM:SS` | Not user-facing                  |
 
 "I applied on June 20th" is true in every timezone — never round-trip `apply_date`
 through a UTC `Date`, which shifts it across the date line. An interview at 2pm is a
@@ -71,7 +76,8 @@ data/seed-applications.csv            291 canonical rows — GENERATED, never ed
 data/jobhunt.db                       SQLite database — gitignored
 data/documents/                       uploaded resumes and cover letters — gitignored
 docs/PRD.md                           requirements, decisions, non-goals
-docs/schema.sql                       canonical schema — source of truth for the data model
+docs/schema.sql                       readable snapshot of the current schema
+migrations/                           numbered SQL — what actually runs against a database
 ```
 
 ## Commands
@@ -80,7 +86,9 @@ docs/schema.sql                       canonical schema — source of truth for t
 npm run dev                 # dev server on http://127.0.0.1:3000
 npm run build               # production build into .output/
 npm test                    # vitest
-npm run db:migrate          # apply docs/schema.sql   (--force drops + recreates)
+npm run db:migrate          # apply pending migrations/
+npm run db:status           # list applied / pending, change nothing
+npm run db:reset            # DESTRUCTIVE: drop everything, re-apply from scratch
 npm run db:seed you@example.com    # load the 291 seed rows for that account
 npm run user:create you@example.com     # create; refuses if the email exists
 npm run user:reset  you@example.com     # reset a password; confirms first
@@ -101,10 +109,10 @@ positionally — the common path needs no separator.
 Three global stylesheets, loaded in this order from `nuxt.config.ts` (order
 matters — tokens define what the others read):
 
-| File | Holds |
-|---|---|
-| [tokens.css](app/assets/css/tokens.css) | `:root` only. Colour, ink, washes, type scale, spacing, structure, measures. |
-| [base.css](app/assets/css/base.css) | `@font-face`, reset, body, headings, links, `.text-muted`, `.visually-hidden`. |
+| File                                            | Holds                                                                                                                                                         |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [tokens.css](app/assets/css/tokens.css)         | `:root` only. Colour, ink, washes, type scale, spacing, structure, measures.                                                                                  |
+| [base.css](app/assets/css/base.css)             | `@font-face`, reset, body, headings, links, `.text-muted`, `.visually-hidden`.                                                                                |
 | [components.css](app/assets/css/components.css) | Shared components and layout primitives: `.btn`, `.field`/`.input`/`.radio`, `.card`, `.tag`, `.nav`, `.table`, `.dialog`, `.page`, `.page-head`, `.cluster`. |
 
 **Where new CSS goes:** global only if two or more components use it, or it is a
@@ -151,7 +159,7 @@ means defining a second token block, not patching individual rules.
 - The app refuses to start without `NUXT_SESSION_PASSWORD` in `.env`; no
   baked-in fallback.
 - Password hashing is `hashUserPassword` / `verifyUserPassword` in
-  `server/utils/password.ts`. They are deliberately *not* named `hashPassword` /
+  `server/utils/password.ts`. They are deliberately _not_ named `hashPassword` /
   `verifyPassword`, which would shadow nuxt-auth-utils' auto-imported versions.
   Theirs can't be used from the CLI scripts because they depend on Nuxt's
   `#imports` alias.
@@ -164,7 +172,7 @@ means defining a second token block, not patching individual rules.
   unemployment insurance, not user interface; the schema was renamed to kill that
   ambiguity, and only `scripts/clean-seed-data.py` still touches the old header.
 - **Duplicate company + role rows are intentional.** Nine pairs repeat with apply
-  dates months apart (Maven Clinic four times: Jan 30, Feb 19, Apr 22, Jul 5).
+  dates months apart (One example appears four times: Jan 30, Feb 19, Apr 22, Jul 5).
   These are genuine re-applications. Do not add deduplication.
 - **`description` is usually empty.** Only 24 of 291 rows hold real prose; the
   posting URL lives in `job_posting_link` (275 rows). Early drafts of this project
@@ -190,15 +198,15 @@ means defining a second token block, not patching individual rules.
 
 ## Scope
 
-The PRD's Non-Goals section is binding. Several entries are *partial* — the
+The PRD's Non-Goals section is binding. Several entries are _partial_ — the
 neighbouring feature is in scope, so read the boundary rather than the headline:
 
-| In scope | Still out of scope |
-|---|---|
-| Storing resumes and cover letters | Generating or tailoring their content |
+| In scope                              | Still out of scope                                       |
+| ------------------------------------- | -------------------------------------------------------- |
+| Storing resumes and cover letters     | Generating or tailoring their content                    |
 | One-way "add to Google Calendar" link | OAuth, token storage, two-way sync, reading the calendar |
-| Analytics from `status_event` | Any inference of status from email |
-| Pasting a job description by hand | Fetching `job_posting_link` to fill `description` |
+| Analytics from `status_event`         | Any inference of status from email                       |
+| Pasting a job description by hand     | Fetching `job_posting_link` to fill `description`        |
 
 Also out entirely: sharing or collaboration between users, native mobile app, PWA.
 

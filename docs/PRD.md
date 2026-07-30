@@ -29,7 +29,7 @@ These are explicitly out of scope. Revisit only by editing this section.
   `description` was evaluated and rejected: the 275 seed links span 96 hosts, half
   of them JS-rendered or auth-walled, so it needs a headless browser plus per-host
   parsers that break on every redesign. Descriptions are pasted by hand.
-- **Resume or cover-letter *generation* or tailoring.** Storage is in scope
+- **Resume or cover-letter _generation_ or tailoring.** Storage is in scope
   (see [Documents](#documents)); writing the content is not.
 - **Email integration of any kind.** No Gmail scanning, no parsing rejection emails,
   no inferring status from a mailbox. Status changes are entered by hand.
@@ -83,7 +83,7 @@ Minimum length is 8 characters. Passwords are hashed with scrypt
 
 **There is no in-app password change**, which is a known gap rather than a
 decision: today a second user cannot rotate their own credentials without shell
-access to the host. An authenticated `PUT /api/password` that *does* verify the
+access to the host. An authenticated `PUT /api/password` that _does_ verify the
 current password is required before a second account is real. Until then, treat
 the CLI as an owner-only tool.
 
@@ -97,22 +97,29 @@ data-leak bug, not a style issue — treat it as one in review.
 
 ## Tech Stack
 
-| Layer | Choice | Notes |
-|---|---|---|
-| Framework | **Nuxt**, latest (4.x) | SSR + `server/api` routes. Not a bare Vue SPA — a server process is needed for SQLite and sessions. |
-| Language | **TypeScript**, strict mode | |
-| Auth | **nuxt-auth-utils** | Sealed session cookies. |
-| Database | **SQLite** | Single file at `data/jobhunt.db`, WAL mode. Not committed. |
-| DB driver | **better-sqlite3** | Synchronous, fast, no ORM. `docs/schema.sql` is the source of truth. |
-| Search | **SQLite FTS5** | Descriptions reach ~5.5k characters; `LIKE '%…%'` scans don't hold up. |
-| UI | Hand-rolled CSS | `app/assets/css/` — tokens, base, components — built from the design artifact. No component library — Nuxt UI was considered and dropped, since the design is a complete system with its own tokens and a zero-radius look a component library would fight. |
-| Package manager | **npm** | |
-| Tests | **Vitest** | Required for the import, the status rules, and every `server/api` route — including that each route rejects cross-user access. |
+| Layer           | Choice                      | Notes                                                                                                                                                                                                                                                       |
+| --------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Framework       | **Nuxt**, latest (4.x)      | SSR + `server/api` routes. Not a bare Vue SPA — a server process is needed for SQLite and sessions.                                                                                                                                                         |
+| Language        | **TypeScript**, strict mode |                                                                                                                                                                                                                                                             |
+| Auth            | **nuxt-auth-utils**         | Sealed session cookies.                                                                                                                                                                                                                                     |
+| Database        | **SQLite**                  | Single file at `data/jobhunt.db`, WAL mode. Not committed.                                                                                                                                                                                                  |
+| DB driver       | **better-sqlite3**          | Synchronous, fast, no ORM. `migrations/` is the source of truth.                                                                                                                                                                                        |
+| Search          | **SQLite FTS5**             | Descriptions reach ~5.5k characters; `LIKE '%…%'` scans don't hold up.                                                                                                                                                                                      |
+| UI              | Hand-rolled CSS             | `app/assets/css/` — tokens, base, components — built from the design artifact. No component library — Nuxt UI was considered and dropped, since the design is a complete system with its own tokens and a zero-radius look a component library would fight. |
+| Package manager | **npm**                     |                                                                                                                                                                                                                                                             |
+| Tests           | **Vitest**                  | Required for the import, the status rules, and every `server/api` route — including that each route rejects cross-user access.                                                                                                                              |
 
 ## Data Model
 
-**`docs/schema.sql` is canonical.** It is executable and verified against the seed
-data — read it rather than reconstructing the model from this document.
+**Read [docs/schema.sql](schema.sql) rather than reconstructing the model from
+this document.** It is the readable snapshot of the current schema, executable
+and verified against the seed data.
+
+`migrations/` is what actually runs against a database — numbered SQL files
+applied in order, checksummed once applied, each in its own transaction. A
+schema change is a *new* migration plus a matching edit to `schema.sql`; editing
+an applied migration is refused, since databases that already ran it would never
+see the change. `tests/schema-drift.test.ts` fails if the two sources disagree.
 
 Tables:
 
@@ -129,7 +136,7 @@ Plus `application_fts` and `document_fts`, FTS5 indexes kept in sync by triggers
 
 ### Status history
 
-`application.status_id` is the *current* state and carries no timing information.
+`application.status_id` is the _current_ state and carries no timing information.
 Every duration metric — time to first response, time to rejection, how long a
 stage takes — is computed from `status_event`, which appends a row on every
 status change.
@@ -185,7 +192,7 @@ can be inserted between existing ones without renumbering.
 - **`description`** — free text, either a pasted job description or empty. Long;
   truncate in table views and show in full on the detail view.
 - **`job_posting_link`** — the posting URL, split out of `description` during import.
-- **`next_step_date_time`** — when the next step happens, date *and* time. It is
+- **`next_step_date_time`** — when the next step happens, date _and_ time. It is
   interpreted against whatever `next_step` says, so it is the screener slot, the
   round-2 slot, or the follow-up reminder depending on context. Drives the calendar
   and reminders. Nullable — most applications never get one.
@@ -223,11 +230,11 @@ that treats a stored time as precise.
 
 Three files, in pipeline order:
 
-| File | Role |
-|---|---|
-| `data/jobhunt-project--seed-data.csv` | Raw spreadsheet export. **Source of record — never edit.** |
-| `scripts/clean-seed-data.py` | Normalizes raw → canonical. Re-runnable, deterministic. |
-| `data/seed-applications.csv` | 291 canonical rows matching the schema. **Generated — never edit by hand.** |
+| File                                  | Role                                                                        |
+| ------------------------------------- | --------------------------------------------------------------------------- |
+| `data/jobhunt-project--seed-data.csv` | Raw spreadsheet export. **Source of record — never edit.**                  |
+| `scripts/clean-seed-data.py`          | Normalizes raw → canonical. Re-runnable, deterministic.                     |
+| `data/seed-applications.csv`          | 291 canonical rows matching the schema. **Generated — never edit by hand.** |
 
 Import must be **idempotent**: running it twice produces one copy of the data, not
 two. It is a full local reset, not a merge. All 291 rows are assigned to the seeded
@@ -249,7 +256,7 @@ The transform already applied, recorded here so it isn't re-derived or re-litiga
   transition dates. Seeded applications start with no history.
 
 **Duplicates are intentional.** Nine company+role pairs repeat, with apply dates
-months apart (Maven Clinic appears four times: Jan 30, Feb 19, Apr 22, Jul 5).
+months apart One example appears four times: Jan 30, Feb 19, Apr 22, Jul 5).
 These are genuine re-applications. Do not add deduplication.
 
 ---
@@ -296,7 +303,7 @@ data, so they come last on purpose.
 
 - **Funnel conversion** — how many applications reached each stage, and the
   drop-off between stages. The stage counts work off current status and are
-  available today; the *rates* are the new part.
+  available today; the _rates_ are the new part.
 - **Response-time stats** — median and distribution of time from `apply_date` to
   the first status change away from "Applied".
 - **Time to rejection** and **time to offer**, as separate distributions.
@@ -327,5 +334,5 @@ size, so a metric computed from four data points is never presented as a trend.
 
 Genuinely undecided. Anything resolved here moves up into the body of this document.
 
-*(None currently open. Prior questions on account creation, vocabulary ownership,
-startup mechanism, and next-step times were all resolved into the sections above.)*
+_(None currently open. Prior questions on account creation, vocabulary ownership,
+startup mechanism, and next-step times were all resolved into the sections above.)_

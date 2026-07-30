@@ -1,8 +1,8 @@
--- Job Hunting Dashboard — canonical SQLite schema.
--- Dates are stored as ISO-8601 'YYYY-MM-DD' text; timestamps as UTC 'YYYY-MM-DD HH:MM:SS'.
-
-PRAGMA foreign_keys = ON;
-PRAGMA journal_mode = WAL;
+-- 0001 — initial schema.
+--
+-- Baseline. Mirrors docs/schema.sql as of the first migration; every change
+-- after this one is its own numbered file. Never edit an applied migration —
+-- db:migrate verifies checksums and will refuse.
 
 -- ---------------------------------------------------------------------------
 -- Users
@@ -253,8 +253,8 @@ INSERT INTO status (label, sort_order, is_terminal) VALUES
   ('Offer declined',                         90, 1),
   ('Offer accepted',                        100, 1),
   ('Rejected',                              110, 1),
-  -- Ended without a decision: posting pulled, or not pursued.
-  ('Expired / Not pursued',                 120, 1);
+  ('Job listing closed',                    120, 1),
+  ('Closed / Not pursued',                  130, 1);
 
 INSERT INTO document_kind (label, sort_order) VALUES
   ('Resume',       10),
