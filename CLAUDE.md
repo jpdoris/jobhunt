@@ -113,7 +113,7 @@ matters — tokens define what the others read):
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [tokens.css](app/assets/css/tokens.css)         | `:root` only. Colour, ink, washes, type scale, spacing, structure, measures.                                                                                  |
 | [base.css](app/assets/css/base.css)             | `@font-face`, reset, body, headings, links, `.text-muted`, `.visually-hidden`.                                                                                |
-| [components.css](app/assets/css/components.css) | Shared components and layout primitives: `.btn`, `.field`/`.input`/`.radio`, `.card`, `.tag`, `.nav`, `.table`, `.dialog`, `.page`, `.page-head`, `.cluster`. |
+| [components.css](app/assets/css/components.css) | Shared components and layout primitives: `.btn`, `.field`/`.input`/`.radio`, `.card`, `.tag`, `.nav`, `.table`, `.dialog`, `.tooltip`, `.page`, `.page-head`, `.cluster`. |
 
 **Where new CSS goes:** global only if two or more components use it, or it is a
 canonical design-system piece. Styling for exactly one component belongs in that

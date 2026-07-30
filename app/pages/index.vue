@@ -178,15 +178,25 @@ async function onSaved() {
           />
         </div>
 
-        <label class="radio field--inline">
-          <input
-            type="checkbox"
-            :checked="route.query.filed === '1'"
-            @change="setQuery({ filed: ($event.target as HTMLInputElement).checked ? '1' : undefined })"
-          />
-          <span class="dot" />
-          Filed
-        </label>
+        <!-- The bubble sits outside the label on purpose: inside it, its text
+             would be folded into the checkbox's accessible name. -->
+        <div class="tooltip field--inline">
+          <label class="radio">
+            <input
+              type="checkbox"
+              aria-describedby="filed-filter-help"
+              :checked="route.query.filed === '1'"
+              @change="setQuery({ filed: ($event.target as HTMLInputElement).checked ? '1' : undefined })"
+            />
+            <span class="dot" />
+            Filed
+          </label>
+          <!-- --end: this sits at the right of the filter bar, so the bubble
+               grows leftward instead of off screen. -->
+          <span id="filed-filter-help" role="tooltip" class="tooltip__bubble tooltip__bubble--end">
+            Submitted with unemployment claim
+          </span>
+        </div>
 
         <button v-if="hasFilters" class="btn btn-ghost" @click="router.push({ query: {} })">
           Clear filters
@@ -203,7 +213,20 @@ async function onSaved() {
               <th>Next step</th>
               <th>When</th>
               <th>Applied</th>
-              <th>Unemployment</th>
+              <!-- --below because .table-scroll clips anything above its top
+                   edge; --end because this column sits near the right. -->
+              <th aria-describedby="filed-column-help">
+                <span class="tooltip">
+                  Filed
+                  <span
+                    id="filed-column-help"
+                    role="tooltip"
+                    class="tooltip__bubble tooltip__bubble--below tooltip__bubble--end"
+                  >
+                    Submitted with unemployment claim
+                  </span>
+                </span>
+              </th>
               <th><span class="visually-hidden">Posting</span></th>
             </tr>
           </thead>

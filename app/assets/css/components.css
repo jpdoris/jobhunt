@@ -297,6 +297,67 @@ textarea.input {
   border-top: var(--rule);
 }
 
+/* Tooltip ----------------------------------------------------------------- *
+ * Put .tooltip on a wrapper, the bubble inside it, and point the control's
+ * aria-describedby at the bubble's id — so the text is announced, not just
+ * shown on hover.
+ *
+ * The bubble hides with opacity, never `visibility` or `display`: either of
+ * those drops it out of the accessibility tree and silences the description it
+ * exists to provide. pointer-events:none keeps it from eating clicks.
+ * -------------------------------------------------------------------------- */
+
+.tooltip {
+  position: relative;
+}
+
+.tooltip__bubble {
+  position: absolute;
+  bottom: calc(100% + var(--space-2));
+  left: 0;
+  z-index: 20;
+  width: max-content;
+  /* Never wider than the viewport, however long the text is. */
+  max-width: min(240px, calc(100vw - var(--space-8)));
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  color: var(--color-bg);
+  background: var(--color-text);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+  text-transform: none;
+}
+
+/* focus-within so keyboard users tabbing to the control see it too. */
+.tooltip:hover .tooltip__bubble,
+.tooltip:focus-within .tooltip__bubble {
+  opacity: 1;
+}
+
+/* CSS cannot detect a viewport collision, so alignment is chosen per instance.
+ * Use --end when the trigger sits near the right edge, or the bubble runs off
+ * screen to the right. */
+.tooltip__bubble--end {
+  left: auto;
+  right: 0;
+}
+
+/* Renders below the trigger instead of above. Required inside .table-scroll:
+ * `overflow-x: auto` makes the browser compute overflow-y to auto as well, so
+ * that container clips anything drawn above its top edge. */
+.tooltip__bubble--below {
+  bottom: auto;
+  top: calc(100% + var(--space-2));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tooltip__bubble {
+    transition: none;
+  }
+}
+
 /* Layout primitives ------------------------------------------------------- */
 
 .page {
