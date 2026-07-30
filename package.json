@@ -1,0 +1,33 @@
+{
+  "name": "jobhunt",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "preview": "nuxt preview",
+    "generate": "nuxt generate",
+    "postinstall": "nuxt prepare",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:migrate": "node --experimental-strip-types scripts/db-migrate.ts",
+    "db:seed": "node --experimental-strip-types scripts/db-seed.ts",
+    "user:create": "node --experimental-strip-types scripts/create-user.ts",
+    "seed:clean": "python3 scripts/clean-seed-data.py",
+    "user:reset": "node --experimental-strip-types scripts/create-user.ts --reset"
+  },
+  "dependencies": {
+    "better-sqlite3": "^13.0.2",
+    "nuxt": "^4.5.1",
+    "nuxt-auth-utils": "^0.5.29",
+    "vue": "^3.5.40",
+    "vue-router": "^5.2.0",
+    "zod": "^4.4.3"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

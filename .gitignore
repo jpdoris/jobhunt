@@ -1,0 +1,37 @@
+# Nuxt dev/build outputs
+.output
+.data
+.nuxt
+.nitro
+.cache
+dist
+
+# Node dependencies
+node_modules
+
+# Logs
+logs
+*.log
+
+# Misc
+.DS_Store
+.fleet
+.idea
+
+# Local env files
+.env
+.env.*
+!.env.example
+
+# Local data — never committed.
+# The seed files carry real recruiter emails, LinkedIn tracking tokens, and the
+# owner's full application history. This is a public repo: keep them local.
+data/*.csv
+data/*.json
+data/jobhunt.db
+data/jobhunt.db-wal
+data/jobhunt.db-shm
+data/documents/
+
+# Claude Code local settings
+.claude/settings.local.json

@@ -1,0 +1,93 @@
+/* Design tokens — the only place raw values live.
+ *
+ * Everything downstream reads these. Prefer adding a token over writing a
+ * literal, and prefer an existing token over a near-duplicate one.
+ *
+ * Palette and scale come from the "Modernist" direction of the design artifact:
+ * zero radius, 2px structural rules, one vermillion accent, Archivo throughout.
+ * Light mode only — a dark theme means a second block here, not patched rules.
+ */
+
+:root {
+  /* Surfaces and ink */
+  --color-bg: #f3f2f2;
+  --color-surface: #eae9e9;
+  --color-text: #201e1d;
+  --color-divider: color-mix(in srgb, #201e1d 40%, transparent);
+  --color-scrim: color-mix(in srgb, #2d2b2b 55%, transparent);
+
+  /* Accent ramp */
+  --color-accent: #ec3013;
+  --color-accent-100: #fff2ef;
+  --color-accent-700: #ae1800;
+  --color-accent-800: #7c1405;
+
+  /* Secondary accent. The 100 tint is deliberately the same as the primary's —
+     tag-accent and tag-accent-2 share a background and differ only in ink. */
+  --color-accent-2-100: var(--color-accent-100);
+  --color-accent-2-800: #71261b;
+
+  --color-neutral-100: #f8f4f4;
+  --color-neutral-800: #444141;
+
+  /* Ink emphasis */
+  --ink-muted: color-mix(in srgb, var(--color-text) 55%, transparent);
+  --ink-label: color-mix(in srgb, var(--color-text) 70%, transparent);
+  --ink-th: color-mix(in srgb, var(--color-text) 60%, transparent);
+
+  /* Interaction washes */
+  --wash-text: color-mix(in srgb, var(--color-text) 7%, transparent);
+  --wash-row: color-mix(in srgb, var(--color-text) 4%, transparent);
+  --wash-accent: color-mix(in srgb, var(--color-accent) 10%, transparent);
+
+  /* Type. One family, two semantic aliases — they differ in intent, not value,
+     so a future display face only has to change --font-heading. */
+  --font-sans: 'Archivo', system-ui, sans-serif;
+  --font-heading: var(--font-sans);
+  --font-body: var(--font-sans);
+  --font-heading-weight: 800;
+
+  --text-2xs: 10px;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 14px;
+  --text-body: 15px;
+  --text-lg: 16px;
+  --text-xl: 22px;
+  --text-2xl: 26px;
+
+  --tracking-kicker: 0.1em;
+  --tracking-label: 0.06em;
+  --tracking-th: 0.08em;
+  --tracking-tag: 0.02em;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* Structure. The modernist look is carried by 2px rules and zero radius —
+     changing --radius away from 0 changes the whole personality of the app. */
+  --rule: 2px solid var(--color-divider);
+  --rule-accent: 2px solid var(--color-accent);
+  --hairline: 1px solid var(--color-divider);
+  --radius: 0;
+
+  /* Controls. --focus-ring matches --rule-accent by value but not by meaning;
+     they are separate so focus styling can change without touching card rules. */
+  --control-h: 36px;
+  --focus-ring: 2px solid var(--color-accent);
+  /* Lifts a checkbox onto the same baseline as a labelled input beside it. */
+  --baseline-nudge: 9px;
+
+  /* Page measures */
+  --measure-wide: 1360px;
+  --measure-narrow: 820px;
+  --measure-dialog: 640px;
+  --measure-auth: 380px;
+}
