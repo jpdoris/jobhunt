@@ -1,5 +1,45 @@
 import { useDatabase } from '../database'
-import type { Application, ApplicationFilters, StatusCount, StatusOption, LookupOption } from '#shared/types'
+import { DEFAULT_SORT } from '#shared/types'
+import type {
+  Application,
+  ApplicationFilters,
+  LookupOption,
+  SortColumn,
+  SortDirection,
+  StatusCount,
+  StatusOption,
+} from '#shared/types'
+
+/**
+ * Sort column -> SQL expression. An allowlist, never interpolation of user
+ * input: `sort` arrives from the query string and lands inside ORDER BY.
+ *
+ * status and nextStep sort by sort_order rather than label — pipeline order is
+ * the meaningful one, and alphabetical would put "Rejected" mid-funnel.
+ *
+ * Text uses COLLATE NOCASE because SQLite's default BINARY collation sorts all
+ * uppercase before any lowercase ('Zillow' before 'apple').
+ */
+const SORT_SQL: Record<SortColumn, string> = {
+  company: 'a.company COLLATE NOCASE',
+  role: 'a.role COLLATE NOCASE',
+  status: 's.sort_order',
+  nextStep: 'n.sort_order',
+  when: 'a.next_step_date_time',
+  applied: 'a.apply_date',
+  filed: 'a.submitted_to_unemployment',
+}
+
+/**
+ * NULLS LAST in both directions: a row with no date is missing information, not
+ * the earliest date, so it belongs at the bottom either way. id breaks ties so
+ * equal values keep a stable order between requests.
+ */
+function orderBy(sort?: { column: SortColumn; direction: SortDirection }): string {
+  const { column, direction } = sort ?? DEFAULT_SORT
+  const dir = direction === 'asc' ? 'ASC' : 'DESC'
+  return `ORDER BY ${SORT_SQL[column]} ${dir} NULLS LAST, a.id DESC`
+}
 
 const SELECT = `
   SELECT
@@ -30,7 +70,11 @@ const toApplication = (r: Row): Application => ({
  * Every query in this module is scoped by userId. See docs/PRD.md — a missing
  * user_id predicate is a data-leak bug, not a style issue.
  */
-export function listApplications(userId: number, filters: ApplicationFilters = {}): Application[] {
+export function listApplications(
+  userId: number,
+  filters: ApplicationFilters = {},
+  sort?: { column: SortColumn; direction: SortDirection },
+): Application[] {
   const db = useDatabase()
   const where: string[] = ['a.user_id = @userId']
   const params: Record<string, unknown> = { userId }
@@ -61,7 +105,7 @@ export function listApplications(userId: number, filters: ApplicationFilters = {
   }
 
   const rows = db
-    .prepare(`${SELECT} WHERE ${where.join(' AND ')} ORDER BY a.apply_date DESC, a.id DESC`)
+    .prepare(`${SELECT} WHERE ${where.join(' AND ')} ${orderBy(sort)}`)
     .all(params) as Row[]
 
   return rows.map(toApplication)

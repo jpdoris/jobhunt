@@ -243,6 +243,41 @@ textarea.input {
   background: var(--wash-row);
 }
 
+/* Sortable headers. A real <button> so the control is keyboard reachable and
+ * announced as one; aria-sort on the <th> is what conveys the current order. */
+.th-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.th-sort:hover {
+  color: var(--color-text);
+}
+
+.th-sort:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.table th:not([aria-sort='none']) .th-sort {
+  color: var(--color-accent);
+}
+
+/* Reserves the arrow's width so headers do not shift as the sort moves. */
+.th-sort__arrow {
+  display: inline-block;
+  min-width: 0.75em;
+}
+
 .row--clickable {
   cursor: pointer;
 }

@@ -40,6 +40,36 @@ export interface StatusCount {
   count: number
 }
 
+export const SORT_COLUMNS = [
+  'company',
+  'role',
+  'status',
+  'nextStep',
+  'when',
+  'applied',
+  'filed',
+] as const
+
+export type SortColumn = (typeof SORT_COLUMNS)[number]
+export type SortDirection = 'asc' | 'desc'
+
+export const DEFAULT_SORT: { column: SortColumn; direction: SortDirection } = {
+  column: 'applied',
+  direction: 'desc',
+}
+
+/** Which way a column runs when you first click it. Dates and flags are most
+ *  useful newest/true-first; text reads better A→Z. */
+export const FIRST_CLICK_DIRECTION: Record<SortColumn, SortDirection> = {
+  company: 'asc',
+  role: 'asc',
+  status: 'asc',
+  nextStep: 'asc',
+  when: 'desc',
+  applied: 'desc',
+  filed: 'desc',
+}
+
 export interface ApplicationFilters {
   search?: string
   statusId?: number

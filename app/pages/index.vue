@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { statusTagClass } from '#shared/types'
-import type { Application, StatusCount } from '#shared/types'
+import { DEFAULT_SORT, FIRST_CLICK_DIRECTION, statusTagClass } from '#shared/types'
+import type { Application, SortColumn, SortDirection, StatusCount } from '#shared/types'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -15,7 +15,42 @@ const filters = computed(() => ({
   appliedFrom: (route.query.appliedFrom as string) || undefined,
   appliedTo: (route.query.appliedTo as string) || undefined,
   submittedToUnemployment: route.query.filed === '1' ? true : undefined,
+  sort: (route.query.sort as SortColumn) || undefined,
+  dir: (route.query.dir as SortDirection) || undefined,
 }))
+
+/** Sort lives in the URL alongside the filters, so a sorted view is bookmarkable. */
+const sort = computed(() => ({
+  column: (route.query.sort as SortColumn) ?? DEFAULT_SORT.column,
+  direction: (route.query.dir as SortDirection) ?? DEFAULT_SORT.direction,
+}))
+
+function toggleSort(column: SortColumn) {
+  // Same column flips direction; a new column starts in whichever direction is
+  // most useful for its type (newest-first for dates, A-Z for text).
+  const direction: SortDirection =
+    sort.value.column === column
+      ? sort.value.direction === 'asc'
+        ? 'desc'
+        : 'asc'
+      : FIRST_CLICK_DIRECTION[column]
+
+  const isDefault = column === DEFAULT_SORT.column && direction === DEFAULT_SORT.direction
+  setQuery({
+    sort: isDefault ? undefined : column,
+    dir: isDefault ? undefined : direction,
+  })
+}
+
+const ariaSort = (column: SortColumn) =>
+  sort.value.column === column
+    ? sort.value.direction === 'asc'
+      ? 'ascending'
+      : 'descending'
+    : 'none'
+
+const sortArrow = (column: SortColumn) =>
+  sort.value.column === column ? (sort.value.direction === 'asc' ? '↑' : '↓') : ''
 
 const { data, refresh } = await useFetch('/api/applications', { query: filters })
 const { data: lookups } = await useFetch('/api/lookups')
@@ -207,17 +242,31 @@ async function onSaved() {
         <table class="table">
           <thead>
             <tr>
-              <th>Company</th>
-              <th>Role</th>
-              <th>Status</th>
-              <th>Next step</th>
-              <th>When</th>
-              <th>Applied</th>
+              <th
+                v-for="col in [
+                  { key: 'company', label: 'Company' },
+                  { key: 'role', label: 'Role' },
+                  { key: 'status', label: 'Status' },
+                  { key: 'nextStep', label: 'Next step' },
+                  { key: 'when', label: 'When' },
+                  { key: 'applied', label: 'Applied' },
+                ] as { key: SortColumn; label: string }[]"
+                :key="col.key"
+                :aria-sort="ariaSort(col.key)"
+              >
+                <button class="th-sort" type="button" @click="toggleSort(col.key)">
+                  {{ col.label }}
+                  <span class="th-sort__arrow" aria-hidden="true">{{ sortArrow(col.key) }}</span>
+                </button>
+              </th>
               <!-- --below because .table-scroll clips anything above its top
                    edge; --end because this column sits near the right. -->
-              <th aria-describedby="filed-column-help">
+              <th :aria-sort="ariaSort('filed')" aria-describedby="filed-column-help">
                 <span class="tooltip">
-                  Filed
+                  <button class="th-sort" type="button" @click="toggleSort('filed')">
+                    Filed
+                    <span class="th-sort__arrow" aria-hidden="true">{{ sortArrow('filed') }}</span>
+                  </button>
                   <span
                     id="filed-column-help"
                     role="tooltip"
