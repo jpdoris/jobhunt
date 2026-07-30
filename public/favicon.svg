@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Crosshair mark. Rebuilt as geometry rather than traced from the source
+       bitmap so it stays crisp at 16px. Drawn edge-to-edge: the outer circle
+       radius equals half the viewBox, leaving no padding.
+
+       Order matters: a solid black disc, a white band punched through it, the
+       orange quadrant over part of that band, the crossbars back in black,
+       then the centre dot. -->
+  <defs>
+    <clipPath id="edge">
+      <circle cx="32" cy="32" r="32" />
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#edge)">
+    <circle cx="32" cy="32" r="32" fill="#111111" />
+
+    <!-- Band between the inner disc (r 17.2) and the ring (r 28), drawn as a
+         stroked circle at the mid-radius. -->
+    <circle cx="32" cy="32" r="22.6" fill="none" stroke="#ffffff" stroke-width="10.8" />
+
+    <!-- Upper-left quarter of that band: 180° (left) to 270° (top). -->
+    <path
+      d="M 9.4 32 A 22.6 22.6 0 0 1 32 9.4"
+      fill="none"
+      stroke="#e2571c"
+      stroke-width="10.8"
+    />
+
+    <!-- Crossbars, clipped to the circle so no corners poke past the edge. -->
+    <rect x="28.3" y="0" width="7.4" height="64" fill="#111111" />
+    <rect x="0" y="28.3" width="64" height="7.4" fill="#111111" />
+
+    <circle cx="32" cy="32" r="3.2" fill="#e2571c" />
+  </g>
+</svg>
