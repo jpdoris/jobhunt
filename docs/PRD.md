@@ -125,7 +125,7 @@ Tables:
 
 - **`user`** — id, email, password hash.
 - **`status`**, **`next_step`**, **`document_kind`** — lookup tables with `label`,
-  `sort_order`, `is_active`, plus `is_terminal` on `status`.
+  `sort_order`, `is_active`, plus `is_terminal` and `tone` on `status`.
 - **`application`** — the working table, `user_id`-scoped, with FKs to the lookups.
 - **`status_event`** — append-only history of status changes. See
   [Status history](#status-history).
@@ -167,6 +167,19 @@ so rather than failing silently.
 Attachment is many-to-many via `application_document`: one resume version goes out
 with many applications, and an application may carry both a resume and a cover
 letter. Deleting an application detaches its documents but never deletes them.
+
+### Status tone
+
+`status.tone` decides the colour of a status tag: `quiet` (open, waiting on them),
+`active` (in motion), `positive` (the good outcome), `closed` (ended).
+
+It is a column rather than something the UI derives, for two reasons. Colour must
+not depend on label text — relabelling a status would silently change it, and a
+new status would fall through to a default. And it cannot be computed from
+`is_terminal`, because **"Offer accepted" is both terminal and positive**.
+
+`statusTagClass()` in `shared/types.ts` is therefore a one-liner over `tone`, and
+nothing in the app pattern-matches a status label.
 
 ### Vocabularies are fixed and owner-maintained
 
@@ -263,40 +276,41 @@ These are genuine re-applications. Do not add deduplication.
 
 ## Features
 
-### v1 — replaces the spreadsheet
+### Shipped
 
 - **Application table** — sortable columns, truncated description, link out to the posting.
+  Sorting runs in SQL over the whole filtered set; status and next step sort by
+  `sort_order`, not alphabetically.
 - **Full-text search** across company, role, description, notes via FTS5.
 - **Filters**, combinable: status, next step, date range on apply date, and
-  `submitted_to_unemployment`. Filter state lives in the URL query string so views are
-  bookmarkable and survive reload.
+  `submitted_to_unemployment`. Filter and sort state live in the URL query string,
+  so views are bookmarkable and survive reload.
 - **Create / edit / delete** an application, with status and next step as dropdowns
   fed from the lookup tables.
 - **Status counts** — one tile per active status. Zero-count statuses still render,
   so the empty parts of the pipeline are visible.
 - **CSV export** of the current filtered view, not the whole table.
 - **Login / logout.**
+- **Calendar** — month grid over `next_step_date_time` plus an upcoming list.
+  Events are bucketed by *local* day, since the stored value is a UTC instant.
+- **Add to Google Calendar**, and a downloadable `.ics` for anything else.
 
-### v2
+  A **plain URL, not an integration**: `calendar.google.com/calendar/render` with
+  `action=TEMPLATE` and query parameters. No OAuth, no client registration, no
+  stored tokens, no background sync, nothing to break when Google rotates an API.
+  The user confirms the event in Google's own UI.
 
-- **Calendar view** over `next_step_date_time`, showing what is coming up.
+- **Document storage** — upload résumés and cover letters, attach them to
+  applications, and search their text. PDF and DOCX text is extracted on upload;
+  a file that yields none is stored and says so. See [Documents](#documents).
+
+### Not yet built
+
 - **Reminders** for upcoming next steps. In-app only — a badge and a dashboard
   panel. No email, no push, no OS notification.
-- **Add to Google Calendar** — a link on any application with a
-  `next_step_date_time` that opens Google Calendar's event composer prefilled with
-  the company, role, next-step label, and time.
-
-  This is a **plain URL, not an integration**: `calendar.google.com/calendar/render`
-  with `action=TEMPLATE` and query parameters. No OAuth, no client registration, no
-  stored tokens, no background sync, and nothing to break when Google rotates an
-  API. The user confirms the event in Google's own UI. Offer a downloadable `.ics`
-  alongside it for any other calendar app.
-
-- **Document storage** — upload and manage resumes and cover letters, attach them
-  to applications, and search their text. See [Documents](#documents).
 - **PDF export**, for sharing with a mentor or career advisor.
 
-### v3 — analytics
+### Analytics — waiting on history
 
 All of these read from `status_event` and are meaningless until it has accumulated
 data, so they come last on purpose.

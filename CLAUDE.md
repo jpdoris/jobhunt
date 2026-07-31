@@ -23,8 +23,9 @@ Violating any of these is a bug, not a style preference.
    proposed and explicitly rejected.
 
 3. **Never hardcode a status or next-step label in logic.** "Still live" is
-   `status.is_terminal = 0`, never `status.label != 'Rejected'`. The owner may
-   relabel values at any time.
+   `status.is_terminal = 0`, never `status.label != 'Rejected'`. Tag colour is
+   `status.tone`, never a regex on the label — that was a real bug, fixed in
+   migration 0003. The owner may relabel values at any time.
 
 4. **Never `DELETE` a lookup row that applications reference.** The FK will refuse.
    Set `is_active = 0` to retire it; pickers hide it, existing rows still render.
@@ -64,20 +65,24 @@ times are therefore sometimes approximate; don't build logic that assumes precis
 ## Layout
 
 ```
-app/assets/css/main.css               ALL styling — tokens, components, layout
-app/pages/                            login, dashboard, detail, calendar
-app/components/                       AppNav, ApplicationForm, AppIcon
-server/api/                           REST endpoints (all user-scoped)
-server/database/index.ts              shared better-sqlite3 connection
-server/utils/applications.ts          every application query lives here
-scripts/                              db-migrate, db-seed, create-user, clean-seed-data
-data/jobhunt-project--seed-data.csv   raw spreadsheet export — source of record, never edit
-data/seed-applications.csv            291 canonical rows — GENERATED, never edit
+app/assets/css/           tokens.css -> base.css -> components.css (that order)
+app/pages/                login, index, applications/[id], documents, calendar
+app/components/           AppNav, ApplicationForm, AppIcon
+app/composables/          useFormat.ts — date/instant rendering
+server/api/               REST endpoints (all user-scoped)
+server/database/index.ts  shared better-sqlite3 connection
+server/utils/             applications, documents, extract-text, password,
+                          session, validation
+shared/types.ts           types + statusTagClass; shared/calendar.ts — ics/Google
+migrations/               numbered SQL — what actually runs against a database
+docs/schema.sql           readable snapshot of the current schema
+docs/PRD.md               requirements, decisions, non-goals
+scripts/                  db-migrate, db-seed, create-user, clean-seed-data,
+                          make-favicon, tag-preview
+data/jobhunt-project--seed-data.csv   raw export — source of record, never edit
+data/seed-applications.csv            canonical rows — GENERATED, never edit
 data/jobhunt.db                       SQLite database — gitignored
-data/documents/                       uploaded resumes and cover letters — gitignored
-docs/PRD.md                           requirements, decisions, non-goals
-docs/schema.sql                       readable snapshot of the current schema
-migrations/                           numbered SQL — what actually runs against a database
+data/documents/                       uploaded résumés/cover letters — gitignored
 ```
 
 ## Commands
@@ -123,6 +128,12 @@ tokens; custom properties are global regardless of scoping.
 
 `.dialog*` is the deliberate exception: one user today (ApplicationForm), kept
 global as a canonical component since the delete confirm is the obvious second.
+
+Status tag colour comes from `--tone-<name>-bg` / `--tone-<name>-ink` in
+tokens.css, selected by `statusTagClass()` from the status's `tone` column. Every
+pairing is checked for contrast — 11px tag text needs 4.5:1, and `closed` is a
+deliberate exception at 4.23:1, noted in the token. After changing any tag colour,
+re-run `python3 scripts/tag-preview.py` to see them together.
 
 **No `style=""` attributes.** Inline styles are the one hard rule here — reach for
 a token or a class instead.

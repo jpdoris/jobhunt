@@ -3,9 +3,13 @@
 A personal job-application tracker. Nuxt 4 + TypeScript + SQLite, built to run
 locally in WSL.
 
-Tracks applications through a fixed status pipeline, records what happens next
-and when, keeps unemployment proof-of-search filings straight, and exports the
-current filtered view to CSV.
+Tracks applications through a fixed status pipeline and records what happens next
+and when. Full-text search and combinable filters over the whole set, sortable
+columns, and CSV export of the current filtered view. A month calendar of
+upcoming next steps, with one-way handoff to Google Calendar or an `.ics` file.
+Résumés and cover letters upload once and attach to as many applications as you
+like, with their text extracted so it is searchable. Unemployment
+proof-of-search filings stay filterable throughout.
 
 - **Requirements** — [docs/PRD.md](docs/PRD.md)
 - **Data model** — [docs/schema.sql](docs/schema.sql) (readable snapshot)
