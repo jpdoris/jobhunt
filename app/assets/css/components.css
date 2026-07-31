@@ -72,7 +72,11 @@
 
 /* Form controls ---------------------------------------------------------- */
 
-.field > label {
+/* Caption above a control. Excludes .radio, whose label *is* the control: this
+ * selector outweighs `.radio` (0-1-1 vs 0-1-0), so without the :not() it forces
+ * display:block, the .dot stops being a flex item, and width/height silently
+ * stop applying to it — the box collapses to its 1.5px border. */
+.field > label:not(.radio) {
   display: block;
   font-size: var(--text-sm);
   margin-bottom: 5px;
