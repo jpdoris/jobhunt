@@ -13,6 +13,38 @@ const query = computed(() => ({
 }))
 
 const { data, refresh } = await useFetch('/api/documents', { query })
+
+/**
+ * Where the user came from, if the application detail page sent them here.
+ * The fetch is tolerant on purpose: a stale, deleted or someone else's id
+ * should quietly drop the back link, not error the whole page.
+ */
+const fromId = computed(() => {
+  const value = Number(route.query.from)
+  return Number.isInteger(value) && value > 0 ? value : null
+})
+
+// During SSR a bare $fetch does not carry the session cookie, so the request
+// would 401 and the back link would silently never render. useFetch forwards
+// them; a plain $fetch has to be handed them explicitly. Empty on the client,
+// where the browser attaches cookies itself.
+const requestHeaders = useRequestHeaders(['cookie'])
+
+const { data: origin } = await useAsyncData(
+  'documents-origin',
+  async () => {
+    if (!fromId.value) return null
+    try {
+      return await $fetch<{ id: number; company: string }>(
+        `/api/applications/${fromId.value}`,
+        { headers: requestHeaders },
+      )
+    } catch {
+      return null
+    }
+  },
+  { watch: [fromId] },
+)
 const documents = computed<DocumentRecord[]>(() => data.value?.documents ?? [])
 const kinds = computed(() => data.value?.kinds ?? [])
 
@@ -20,6 +52,15 @@ function setQuery(patch: Record<string, string | undefined>) {
   const q = { ...route.query, ...patch }
   for (const [k, v] of Object.entries(q)) if (!v) delete q[k]
   router.push({ query: q })
+}
+
+/** `from` is provenance, not a filter — clearing filters must not strip it. */
+const activeFilters = computed(() =>
+  Object.keys(route.query).filter((k) => k !== 'from'),
+)
+
+function clearFilters() {
+  router.push({ query: fromId.value ? { from: String(fromId.value) } : {} })
 }
 
 const search = ref((route.query.search as string) ?? '')
@@ -119,6 +160,10 @@ async function remove(doc: DocumentRecord) {
     <AppNav />
 
     <main class="page page--narrow">
+      <NuxtLink v-if="origin" class="btn btn-ghost" :to="`/applications/${origin.id}`">
+        <AppIcon name="back" /> Back to {{ origin.company }}
+      </NuxtLink>
+
       <div class="page-head">
         <div>
           <h1 class="page-head__title">Documents</h1>
@@ -153,11 +198,7 @@ async function remove(doc: DocumentRecord) {
             <option v-for="k in kinds" :key="k.id" :value="k.id">{{ k.label }}</option>
           </select>
         </div>
-        <button
-          v-if="Object.keys(route.query).length"
-          class="btn btn-ghost"
-          @click="router.push({ query: {} })"
-        >
+        <button v-if="activeFilters.length" class="btn btn-ghost" @click="clearFilters">
           Clear
         </button>
       </div>

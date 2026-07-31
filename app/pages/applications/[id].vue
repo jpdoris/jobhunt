@@ -142,17 +142,27 @@ async function remove() {
         </ul>
         <p v-else class="section__body text-muted">Nothing attached yet.</p>
 
-        <div v-if="attachable.length" class="cluster doc-attach">
-          <select v-model.number="attachId" class="input doc-attach__select" aria-label="Document to attach">
-            <option :value="null">Attach a document…</option>
-            <option v-for="doc in attachable" :key="doc.id" :value="doc.id">
-              {{ doc.kindLabel }} — {{ doc.title }}
-            </option>
-          </select>
-          <button class="btn btn-secondary" :disabled="!attachId" @click="attach">Attach</button>
+        <div class="cluster doc-attach">
+          <template v-if="attachable.length">
+            <select v-model.number="attachId" class="input doc-attach__select" aria-label="Document to attach">
+              <option :value="null">Attach a document…</option>
+              <option v-for="doc in attachable" :key="doc.id" :value="doc.id">
+                {{ doc.kindLabel }} — {{ doc.title }}
+              </option>
+            </select>
+            <button class="btn btn-secondary" :disabled="!attachId" @click="attach">Attach</button>
+          </template>
+
+          <!-- ?from= lets the library offer a way back here. A query param
+               rather than the referrer: referrer is absent during SSR, lost on
+               reload, and stripped by some privacy settings. -->
+          <NuxtLink class="btn btn-ghost" :to="`/documents?from=${application.id}`">
+            <AppIcon name="plus" /> Add or manage documents
+          </NuxtLink>
         </div>
-        <p v-else-if="!library?.documents?.length" class="section__body text-muted">
-          <NuxtLink to="/documents">Add a résumé or cover letter</NuxtLink> to attach it here.
+
+        <p v-if="!library?.documents?.length" class="section__body text-muted">
+          Your library is empty — add a résumé or cover letter to attach it here.
         </p>
       </div>
 
