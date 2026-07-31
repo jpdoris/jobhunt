@@ -1,0 +1,30 @@
+# systemd unit — copy to /etc/systemd/system/jobhunt.service
+#
+# A system service, like apache2 and mysql, so it starts at boot with no
+# `loginctl enable-linger`. Port 3000 needs no special privileges; Apache
+# handles :80 and proxies here.
+
+[Unit]
+Description=Job Hunting Dashboard
+After=network.target
+
+[Service]
+Type=simple
+User=jamie
+Group=jamie
+WorkingDirectory=/home/jamie/dev/jobhunt
+
+# Absolute path: systemd does not source .bashrc, so nvm is not available here.
+# Update this after a Node upgrade, or point it at a stable symlink.
+ExecStart=/home/jamie/.nvm/versions/node/v26.5.0/bin/node .output/server/index.mjs
+
+Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
+Environment=PORT=3000
+EnvironmentFile=/home/jamie/dev/jobhunt/.env
+
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

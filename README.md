@@ -95,70 +95,93 @@ there. The import is idempotent: running it twice leaves one copy, not two.
 Positional arguments work directly; flags need npm's separator:
 `npm run user:create -- you@example.com --password secret`.
 
-## Running on startup (WSL + systemd)
+## Running at startup (WSL)
 
-Confirm systemd is running as PID 1:
+Apache already owns port 80 here, so it front-ends the app: Node runs
+unprivileged on 3000 and Apache proxies `jobhunt.test` to it. That keeps the URL
+clean without giving Node a privileged port.
 
-```bash
-ps -p 1 -o comm=          # should print: systemd
-```
-
-If it does not, add this to `/etc/wsl.conf`, then run `wsl --shutdown` from
-PowerShell and reopen the shell:
-
-```ini
-[boot]
-systemd=true
-```
-
-Enable lingering so the service runs without an open login session. This is the
-step that makes "starts on boot" actually true:
+Two files are in [deploy/](deploy/). Copy them into place:
 
 ```bash
-sudo loginctl enable-linger "$USER"
+npm run build                       # the service serves .output/, so build first
+
+sudo a2enmod proxy proxy_http
+sudo cp deploy/jobhunt.conf /etc/apache2/sites-available/
+sudo a2ensite jobhunt
+sudo systemctl reload apache2
+
+sudo cp deploy/jobhunt.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now jobhunt
 ```
 
-Build once (`npm run build`), then create
-`~/.config/systemd/user/jobhunt.service`:
+### Make Apache listen on IPv4
 
-```ini
-[Unit]
-Description=Job Hunting Dashboard
-After=network.target
+In `/etc/apache2/ports.conf`, the top-level `Listen` must be:
 
-[Service]
-Type=simple
-WorkingDirectory=/home/jamie/dev/jobhunt
-ExecStart=/home/jamie/.nvm/versions/node/v26.5.0/bin/node .output/server/index.mjs
-Environment=NODE_ENV=production
-Environment=HOST=127.0.0.1
-Environment=PORT=3000
-EnvironmentFile=/home/jamie/dev/jobhunt/.env
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=default.target
+```apache
+Listen 0.0.0.0:80
 ```
+
+This is required, not cosmetic. WSL's `wslrelay` mirrors whichever address
+family the WSL service binds:
+
+| WSL service binds | Windows reaches it at |
+|---|---|
+| `::` — what plain `Listen 80` does | `::1` only |
+| `0.0.0.0` | `127.0.0.1` |
+
+With the default `Listen 80`, Apache binds the IPv6 wildcard, the relay listens
+only on `::1:80`, and a `127.0.0.1` hosts entry gets connection-refused. Pinning
+Apache to IPv4 keeps every service on `127.0.0.1`, so hosts entries are uniform.
+
+Apache has **no inline comments** — `#` only starts a comment at the beginning of
+a line. `Listen 0.0.0.0:80  # note` is parsed as five arguments and fails with
+"Listen requires 1 or 2 arguments".
 
 ```bash
-systemctl --user daemon-reload
-systemctl --user enable --now jobhunt
-systemctl --user status jobhunt
-journalctl --user -u jobhunt -f     # logs
+sudo apache2ctl configtest
+sudo systemctl restart apache2      # restart, not reload — reload will not rebind
+ss -ltn | grep ':80'                # expect 0.0.0.0:80, not *:80
 ```
 
-Two caveats:
+### Hosts files
 
-- **The Node path is pinned.** systemd does not source `.bashrc`, so `nvm` is
-  not available to it and `ExecStart` must be an absolute path. It will break on
-  a Node upgrade — either update the unit, or symlink `~/.local/bin/node` to the
-  current version and point the unit at that.
-- **It serves the production build**, so `npm run build` must have run at least
-  once, and again after any change you want to go live.
+Add the same line to **both**:
 
-`HOST=127.0.0.1` keeps it on loopback. Authentication exists, but nothing here
-is hardened for exposure to a network.
+```
+127.0.0.1    jobhunt.test
+```
+
+| File | Why both |
+|---|---|
+| `C:\Windows\System32\drivers\etc\hosts` | So a Windows browser resolves it |
+| `/etc/hosts` (WSL) | `/etc/wsl.conf` sets `generateHosts = false`, so WSL does not inherit the Windows file |
+
+Do **not** use the WSL `eth0` address (`172.23.x.x`). It works, but NAT mode
+reassigns it on every WSL restart, silently breaking the entry. `127.0.0.1` is
+fixed.
+
+Then open **http://jobhunt.test**.
+
+```bash
+systemctl status jobhunt
+journalctl -u jobhunt -f            # app logs
+sudo tail -f /var/log/apache2/jobhunt-error.log
+```
+
+### Notes
+
+- **`.test` is deliberate.** `.dev` is a real gTLD on the browser HSTS preload
+  list, so `http://` is force-upgraded to HTTPS and fails with no way through;
+  `.local` is reserved for mDNS and resolves erratically. `.test` is reserved by
+  RFC 6761 for exactly this.
+- **Stop `npm run dev` before enabling the service** — both want port 3000.
+- **The Node path in the unit is pinned** to a specific nvm version, because
+  systemd does not source `.bashrc`. A Node upgrade breaks it until you update
+  the path or point it at a stable symlink.
+- **Deploy a change** with `npm run build && sudo systemctl restart jobhunt`.
 
 ## Privacy
 

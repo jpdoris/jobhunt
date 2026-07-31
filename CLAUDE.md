@@ -175,6 +175,16 @@ means defining a second token block, not patching individual rules.
   Theirs can't be used from the CLI scripts because they depend on Nuxt's
   `#imports` alias.
 
+## Deployment
+
+Runs behind Apache on this machine: a systemd system service on
+`127.0.0.1:3000`, with an Apache vhost proxying `jobhunt.test` to it. Unit and
+vhost live in `deploy/`; setup steps are in the README.
+
+The service serves `.output/`, so a change is only live after
+`npm run build && sudo systemctl restart jobhunt`. Editing source alone does
+nothing to the deployed app.
+
 ## Facts that are easy to guess wrong
 
 - **`submitted_to_unemployment`** records that an application was filed with
