@@ -79,25 +79,25 @@ async function save() {
         </div>
 
         <div class="field">
+          <label for="applyDate">Applied on</label>
+          <input id="applyDate" v-model="form.applyDate" class="input" type="date" />
+        </div>
+        <div class="field">
           <label for="statusId">Status</label>
           <select id="statusId" v-model.number="form.statusId" class="input">
             <option v-for="s in statuses" :key="s.id" :value="s.id">{{ s.label }}</option>
           </select>
         </div>
+
         <div class="field">
           <label for="nextStepId">Next step</label>
           <select id="nextStepId" v-model.number="form.nextStepId" class="input">
             <option v-for="n in nextSteps" :key="n.id" :value="n.id">{{ n.label }}</option>
           </select>
         </div>
-
         <div class="field">
           <label for="nextStepLocal">Next step date &amp; time</label>
           <input id="nextStepLocal" v-model="form.nextStepLocal" class="input" type="datetime-local" />
-        </div>
-        <div class="field">
-          <label for="applyDate">Applied on</label>
-          <input id="applyDate" v-model="form.applyDate" class="input" type="date" />
         </div>
 
         <div class="field form-grid__wide">
