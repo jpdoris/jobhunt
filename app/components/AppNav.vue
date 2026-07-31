@@ -15,6 +15,7 @@ async function signOut() {
   <nav class="nav">
     <div class="nav-brand">Job Hunt</div>
     <NuxtLink to="/">Applications</NuxtLink>
+    <NuxtLink to="/documents">Documents</NuxtLink>
     <NuxtLink to="/calendar">Calendar</NuxtLink>
     <div class="cluster cluster--end">
       <button v-if="showActions" class="btn btn-secondary" @click="emit('export')">

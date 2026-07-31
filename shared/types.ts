@@ -40,6 +40,39 @@ export interface StatusCount {
   count: number
 }
 
+export interface DocumentKind {
+  id: number
+  label: string
+  sortOrder: number
+}
+
+export interface DocumentRecord {
+  id: number
+  kindId: number
+  kindLabel: string
+  title: string
+  /** Relative to data/documents/. Null for text-only entries. */
+  filePath: string | null
+  mimeType: string | null
+  byteSize: number | null
+  /** Only populated on the single-document endpoint; null in list responses. */
+  contentText: string | null
+  /** Whether search can see this document at all. */
+  hasText: boolean
+  attachedCount: number
+  createdAt: string
+  updatedAt: string
+}
+
+export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+
+export function formatBytes(bytes: number | null): string {
+  if (!bytes) return '—'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
 export const SORT_COLUMNS = [
   'company',
   'role',

@@ -6,6 +6,34 @@ definePageMeta({ middleware: 'auth' })
 const route = useRoute()
 const { data: application, refresh } = await useFetch(`/api/applications/${route.params.id}`)
 const { data: lookups } = await useFetch('/api/lookups')
+const { data: attached, refresh: refreshAttached } = await useFetch(
+  `/api/applications/${route.params.id}/documents`,
+)
+const { data: library } = await useFetch('/api/documents')
+
+const attachId = ref<number | null>(null)
+
+/** Only offer documents that are not already on this application. */
+const attachable = computed(() => {
+  const on = new Set((attached.value ?? []).map((d) => d.id))
+  return (library.value?.documents ?? []).filter((d) => !on.has(d.id))
+})
+
+async function attach() {
+  if (!attachId.value) return
+  await $fetch(`/api/applications/${route.params.id}/documents`, {
+    method: 'POST',
+    body: { documentId: attachId.value },
+  })
+  attachId.value = null
+  await refreshAttached()
+}
+
+async function detach(documentId: number) {
+  // Detaching only removes the link — the document stays in the library.
+  await $fetch(`/api/applications/${route.params.id}/documents/${documentId}`, { method: 'DELETE' })
+  await refreshAttached()
+}
 
 const editing = ref(false)
 
@@ -84,6 +112,35 @@ async function remove() {
       </div>
 
       <div class="section">
+        <h2 class="section__title">Documents</h2>
+
+        <ul v-if="attached?.length" class="doc-list">
+          <li v-for="doc in attached" :key="doc.id" class="doc-list__item">
+            <a v-if="doc.filePath" :href="`/api/documents/${doc.id}/file`" target="_blank" rel="noopener">
+              {{ doc.title }}
+            </a>
+            <span v-else>{{ doc.title }}</span>
+            <span class="tag tag-neutral">{{ doc.kindLabel }}</span>
+            <button class="btn btn-ghost" @click="detach(doc.id)">Remove</button>
+          </li>
+        </ul>
+        <p v-else class="section__body text-muted">Nothing attached yet.</p>
+
+        <div v-if="attachable.length" class="cluster doc-attach">
+          <select v-model.number="attachId" class="input doc-attach__select" aria-label="Document to attach">
+            <option :value="null">Attach a document…</option>
+            <option v-for="doc in attachable" :key="doc.id" :value="doc.id">
+              {{ doc.kindLabel }} — {{ doc.title }}
+            </option>
+          </select>
+          <button class="btn btn-secondary" :disabled="!attachId" @click="attach">Attach</button>
+        </div>
+        <p v-else-if="!library?.documents?.length" class="section__body text-muted">
+          <NuxtLink to="/documents">Add a résumé or cover letter</NuxtLink> to attach it here.
+        </p>
+      </div>
+
+      <div class="section">
         <h2 class="section__title">Description</h2>
         <p class="section__body text-muted">{{ application.description || 'No description recorded.' }}</p>
       </div>
@@ -151,6 +208,26 @@ async function remove() {
 .section__body {
   margin: 0;
   white-space: pre-wrap;
+}
+
+.doc-list {
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.doc-list__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.doc-attach__select {
+  width: auto;
+  min-width: 260px;
 }
 
 @media (max-width: 720px) {
