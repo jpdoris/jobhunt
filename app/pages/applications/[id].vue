@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { statusTagClass } from '#shared/types'
+import { googleCalendarUrl } from '#shared/calendar'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -87,6 +88,21 @@ async function remove() {
         <div>
           <div class="detail-meta__label">When</div>
           <div>{{ formatInstant(application.nextStepDateTime) }}</div>
+          <!-- One-way handoff: opens the composer / downloads a file. Nothing
+               is synced back (docs/PRD.md). -->
+          <div v-if="application.nextStepDateTime" class="cal-actions">
+            <a
+              class="btn btn-ghost"
+              :href="googleCalendarUrl(application)!"
+              target="_blank"
+              rel="noopener"
+            >
+              <AppIcon name="calendar" /> Google Calendar
+            </a>
+            <a class="btn btn-ghost" :href="`/api/applications/${application.id}/calendar.ics`">
+              <AppIcon name="download" /> .ics
+            </a>
+          </div>
         </div>
         <div>
           <div class="detail-meta__label">Applied</div>
@@ -208,6 +224,14 @@ async function remove() {
 .section__body {
   margin: 0;
   white-space: pre-wrap;
+}
+
+.cal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+  margin-left: calc(var(--space-1) * -1);
 }
 
 .doc-list {

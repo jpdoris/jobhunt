@@ -22,6 +22,31 @@ export function formatInstant(value: string | null): string {
   })
 }
 
+/** `YYYY-MM-DD` for a Date, read with local getters. */
+export function dayKey(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
+/**
+ * Which calendar square a stored instant belongs on.
+ *
+ * Must use local getters: the value is UTC, and in a negative offset an event
+ * stored at 02:00 UTC happens the *previous* evening locally. Keying off the
+ * UTC date would file it under the wrong day.
+ */
+export function localDayKey(utcInstant: string): string {
+  return dayKey(new Date(`${utcInstant.replace(' ', 'T')}Z`))
+}
+
+/** Time only, in the viewer's zone — the day is already implied by the square. */
+export function formatTimeOnly(utcInstant: string): string {
+  return new Date(`${utcInstant.replace(' ', 'T')}Z`).toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
 /** Local `<input type="datetime-local">` value -> UTC `YYYY-MM-DD HH:MM:SS`. */
 export function localInputToUtc(value: string): string | null {
   if (!value) return null
