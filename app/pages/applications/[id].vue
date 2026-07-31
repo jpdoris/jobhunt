@@ -136,7 +136,7 @@ async function remove() {
               {{ doc.title }}
             </a>
             <span v-else>{{ doc.title }}</span>
-            <span class="tag tag-neutral">{{ doc.kindLabel }}</span>
+            <span class="tag tag-generic">{{ doc.kindLabel }}</span>
             <button class="btn btn-ghost" @click="detach(doc.id)">Remove</button>
           </li>
         </ul>

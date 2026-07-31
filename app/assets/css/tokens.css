@@ -28,7 +28,45 @@
   --color-accent-2-800: #71261b;
 
   --color-neutral-100: #f8f4f4;
+  --color-neutral-300: #d7d3d3;
+  --color-neutral-500: #9b9797;
+  --color-neutral-600: #7c7b79;
   --color-neutral-800: #444141;
+  --color-neutral-900: #2d2b2b;
+  --color-neutral-950: #141313;
+
+  /* Status tones. All clear 4.5:1 for 11px tag text except `closed` — see the
+     note there. Re-check with scripts/tag-preview.py after any change. */
+
+  /* open, waiting on them */
+  --tone-quiet-bg: var(--color-neutral-300);
+  --tone-quiet-ink: var(--color-neutral-900);
+
+  /* in motion — scheduled or under way */
+  --tone-active-bg: #ecdacf;
+  --tone-active-ink: #4b3526;
+
+  /* the good outcome */
+  --tone-positive-bg: #d1e8b6;
+  --tone-positive-ink: #203500;
+
+  /* Ended, no further action — an inverted chip, so it reads as struck through
+     rather than merely quiet.
+
+     White on this grey is 4.23:1, just under the 4.5 that 11px text wants.
+     Chosen deliberately for the look; #777674 is the nearest shade that clears
+     the bar if legibility wins out. */
+  --tone-closed-bg: var(--color-neutral-600);
+  --tone-closed-ink: #ffffff;
+
+  /* Non-semantic label — document kinds and other catch-alls. */
+  --tone-generic-bg: var(--color-neutral-100);
+  --tone-generic-ink: var(--color-neutral-800);
+
+  /* Proof-of-search chip: outlined rather than filled, so it reads as a marker
+     against the row instead of another status. */
+  --tone-filed-bg: #ffffff;
+  --tone-filed-ink: var(--color-accent-700);
 
   /* Ink emphasis */
   --ink-muted: color-mix(in srgb, var(--color-text) 55%, transparent);

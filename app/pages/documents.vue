@@ -230,7 +230,7 @@ async function remove(doc: DocumentRecord) {
               <td>{{ doc.kindLabel }}</td>
               <td class="cell--tight">{{ formatBytes(doc.byteSize) }}</td>
               <td>
-                <span v-if="doc.hasText" class="tag tag-neutral">Yes</span>
+                <span v-if="doc.hasText" class="tag tag-generic">Yes</span>
                 <span v-else class="tag tag-outline" title="No text was extracted — edit to paste it">No</span>
               </td>
               <td class="cell--tight">

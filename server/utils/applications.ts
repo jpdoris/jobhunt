@@ -6,6 +6,7 @@ import type {
   LookupOption,
   SortColumn,
   SortDirection,
+  StatusTone,
   StatusCount,
   StatusOption,
 } from '#shared/types'
@@ -45,7 +46,8 @@ const SELECT = `
   SELECT
     a.id, a.company, a.role, a.description,
     a.job_posting_link AS jobPostingLink, a.contact, a.apply_date AS applyDate,
-    a.status_id AS statusId, s.label AS statusLabel, s.is_terminal AS isTerminal,
+    a.status_id AS statusId, s.label AS statusLabel, s.tone AS statusTone,
+    s.is_terminal AS isTerminal,
     a.next_step_id AS nextStepId, n.label AS nextStepLabel,
     a.next_step_date_time AS nextStepDateTime,
     a.notes, a.submitted_to_unemployment AS submittedToUnemployment,
@@ -142,12 +144,13 @@ export function statusCounts(userId: number): StatusCount[] {
 export function statuses(): StatusOption[] {
   return useDatabase()
     .prepare(
-      `SELECT id, label, sort_order AS sortOrder, is_terminal AS isTerminal, is_active AS isActive
+      `SELECT id, label, sort_order AS sortOrder, is_terminal AS isTerminal,
+              is_active AS isActive, tone
        FROM status WHERE is_active = 1 ORDER BY sort_order`,
     )
     .all()
     .map((r) => {
-      const row = r as { id: number; label: string; sortOrder: number; isTerminal: number; isActive: number }
+      const row = r as { id: number; label: string; sortOrder: number; isTerminal: number; isActive: number; tone: StatusTone }
       return { ...row, isTerminal: Boolean(row.isTerminal), isActive: Boolean(row.isActive) }
     })
 }

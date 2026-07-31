@@ -173,26 +173,44 @@ textarea.input {
   padding: 3px 10px;
 }
 
-/* Variants are applied dynamically by statusTagClass() in shared/types.ts —
- * they will not appear as literals in any template. */
-.tag-accent {
-  background: var(--color-accent-100);
-  color: var(--color-accent-800);
+/* Status tones, chosen by statusTagClass() from the status's own `tone` column —
+ * these never appear as literals in a template. */
+.tag-quiet {
+  background: var(--tone-quiet-bg);
+  color: var(--tone-quiet-ink);
 }
 
-.tag-accent-2 {
-  background: var(--color-accent-2-100);
-  color: var(--color-accent-2-800);
+.tag-active {
+  background: var(--tone-active-bg);
+  color: var(--tone-active-ink);
 }
 
+.tag-positive {
+  background: var(--tone-positive-bg);
+  color: var(--tone-positive-ink);
+}
+
+.tag-closed {
+  background: var(--tone-closed-bg);
+  color: var(--tone-closed-ink);
+}
+
+/* Catch-all label with no status meaning — document kinds, and similar. */
+.tag-generic {
+  background: var(--tone-generic-bg);
+  color: var(--tone-generic-ink);
+}
+
+/* Kept for the plain neutral chip. */
 .tag-neutral {
   background: var(--color-neutral-100);
   color: var(--color-neutral-800);
 }
 
 .tag-outline {
+  background: var(--tone-filed-bg);
   border: 1px solid currentColor;
-  color: var(--color-accent);
+  color: var(--tone-filed-ink);
 }
 
 /* Nav --------------------------------------------------------------------- */

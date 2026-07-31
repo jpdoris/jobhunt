@@ -35,7 +35,13 @@ CREATE TABLE status (
   label       TEXT NOT NULL UNIQUE,
   sort_order  INTEGER NOT NULL,
   is_terminal INTEGER NOT NULL DEFAULT 0 CHECK (is_terminal IN (0, 1)),
-  is_active   INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1))
+  is_active   INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
+  -- Drives the tag colour. A property of the status, so the UI never has to
+  -- pattern-match a label. "Offer accepted" is both terminal and positive,
+  -- which is why this cannot be derived from is_terminal.
+  --   quiet | active | positive | closed
+  tone        TEXT NOT NULL DEFAULT 'quiet'
+    CHECK (tone IN ('quiet', 'active', 'positive', 'closed'))
 );
 
 CREATE TABLE next_step (
@@ -241,20 +247,20 @@ END;
 -- Seed vocabularies
 -- ---------------------------------------------------------------------------
 
-INSERT INTO status (label, sort_order, is_terminal) VALUES
-  ('Applied',                                10, 0),
-  ('Contacted recruiter',                    20, 0),
-  ('Interview scheduled',                    30, 0),
-  ('Interviewed (round 1)',                  40, 0),
-  ('Interviewed (round 2)',                  50, 0),
-  ('Interviewed (round 3)',                  60, 0),
-  ('Interviewed (round 4)',                  70, 0),
-  ('Offer received',                         80, 0),
-  ('Offer declined',                         90, 1),
-  ('Offer accepted',                        100, 1),
-  ('Rejected',                              110, 1),
+INSERT INTO status (label, sort_order, is_terminal, tone) VALUES
+  ('Applied',                                10, 0, 'quiet'),
+  ('Contacted recruiter',                    20, 0, 'quiet'),
+  ('Interview scheduled',                    30, 0, 'active'),
+  ('Interviewed (round 1)',                  40, 0, 'active'),
+  ('Interviewed (round 2)',                  50, 0, 'active'),
+  ('Interviewed (round 3)',                  60, 0, 'active'),
+  ('Interviewed (round 4)',                  70, 0, 'active'),
+  ('Offer received',                         80, 0, 'positive'),
+  ('Offer declined',                         90, 1, 'closed'),
+  ('Offer accepted',                        100, 1, 'positive'),
+  ('Rejected',                              110, 1, 'closed'),
   -- Ended without a decision: posting pulled, or not pursued.
-  ('Expired / Not pursued',                 120, 1);
+  ('Expired / Not pursued',                 120, 1, 'closed');
 
 INSERT INTO document_kind (label, sort_order) VALUES
   ('Resume',       10),

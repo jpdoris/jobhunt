@@ -7,8 +7,12 @@ export interface LookupOption {
   isActive: boolean
 }
 
+export const STATUS_TONES = ['quiet', 'active', 'positive', 'closed'] as const
+export type StatusTone = (typeof STATUS_TONES)[number]
+
 export interface StatusOption extends LookupOption {
   isTerminal: boolean
+  tone: StatusTone
 }
 
 export interface Application {
@@ -22,6 +26,7 @@ export interface Application {
   applyDate: string | null
   statusId: number
   statusLabel: string
+  statusTone: StatusTone
   isTerminal: boolean
   nextStepId: number
   nextStepLabel: string
@@ -113,13 +118,10 @@ export interface ApplicationFilters {
 }
 
 /**
- * Tag variant per status. The design ships three tag treatments; map by
- * pipeline position rather than by label so relabelling a status in
- * docs/schema.sql does not silently fall back to the neutral tag.
+ * Tag variant for a status. Driven by the status's own `tone` column, so
+ * relabelling a status never changes its colour and a new status cannot fall
+ * through to a wrong default — see CLAUDE.md rule 3.
  */
-export function statusTagClass(status: { label: string; isTerminal: boolean }): string {
-  if (status.isTerminal) return 'tag-neutral'
-  if (/^Interview/i.test(status.label)) return 'tag-accent'
-  if (/^Offer/i.test(status.label)) return 'tag-accent-2'
-  return 'tag-neutral'
+export function statusTagClass(status: { statusTone: StatusTone }): string {
+  return `tag-${status.statusTone}`
 }

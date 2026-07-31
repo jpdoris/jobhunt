@@ -20,21 +20,63 @@ function build(sql: string): Database.Database {
   return db
 }
 
-/** Objects SQLite tracks, normalized so incidental whitespace is not a diff. */
+function master(db: Database.Database) {
+  return db
+    .prepare(
+      `SELECT type, name, sql FROM sqlite_master
+       WHERE name NOT LIKE 'sqlite_%' AND name != 'schema_migration'
+       ORDER BY type, name`,
+    )
+    .all() as { type: string; name: string; sql: string | null }[]
+}
+
+/** Names and kinds only — the cheapest check, and the one with the clearest failure. */
 function objects(db: Database.Database) {
-  return (
-    db
-      .prepare(
-        `SELECT type, name, sql FROM sqlite_master
-         WHERE name NOT LIKE 'sqlite_%' AND name != 'schema_migration'
-         ORDER BY type, name`,
-      )
-      .all() as { type: string; name: string; sql: string | null }[]
-  ).map((r) => ({
-    type: r.type,
-    name: r.name,
-    sql: (r.sql ?? '').replace(/\s+/g, ' ').trim(),
-  }))
+  return master(db).map((r) => `${r.type} ${r.name}`)
+}
+
+/**
+ * Column shape per table, straight from SQLite rather than from the DDL text.
+ *
+ * Comparing raw CREATE TABLE strings looks stricter but is actually useless
+ * here: `ALTER TABLE ADD COLUMN` appends to the stored text, so a migrated
+ * database never matches an inline definition character-for-character even when
+ * the two are identical in every way that matters.
+ */
+function columns(db: Database.Database) {
+  const out: Record<string, unknown[]> = {}
+  for (const t of master(db).filter((r) => r.type === 'table')) {
+    out[t.name] = db
+      .prepare(`PRAGMA table_info("${t.name}")`)
+      .all()
+      .map((c) => {
+        const col = c as { name: string; type: string; notnull: number; dflt_value: string | null; pk: number }
+        return `${col.name} ${col.type} notnull=${col.notnull} default=${col.dflt_value ?? '-'} pk=${col.pk}`
+      })
+  }
+  return out
+}
+
+/**
+ * CHECK constraints as an unordered set per table — table_info does not expose
+ * them, and they are load-bearing here (date formats, boolean columns, tone).
+ */
+function checks(db: Database.Database) {
+  const out: Record<string, string[]> = {}
+  for (const t of master(db).filter((r) => r.type === 'table')) {
+    const sql = (t.sql ?? '').replace(/--[^\n]*/g, '').replace(/\s+/g, ' ')
+    out[t.name] = [...sql.matchAll(/CHECK\s*(\([^;]*?\))\s*(?:,|\)\s*$)/gi)]
+      .map((m) => m[1]!.replace(/\s+/g, ''))
+      .sort()
+  }
+  return out
+}
+
+/** Indexes and triggers are created identically in both, so text is fine there. */
+function definitions(db: Database.Database, type: 'index' | 'trigger') {
+  return master(db)
+    .filter((r) => r.type === type)
+    .map((r) => `${r.name}: ${(r.sql ?? '').replace(/\s+/g, ' ').trim()}`)
 }
 
 const schemaSql = readFileSync(resolve(process.cwd(), 'docs/schema.sql'), 'utf8')
@@ -49,17 +91,27 @@ describe('schema.sql and migrations/ agree', () => {
   const fromMigrations = build(migrationSql)
 
   it('define the same set of objects', () => {
-    const a = objects(fromSchema).map((o) => `${o.type} ${o.name}`)
-    const b = objects(fromMigrations).map((o) => `${o.type} ${o.name}`)
-    expect(b).toEqual(a)
-  })
-
-  it('define those objects identically', () => {
     expect(objects(fromMigrations)).toEqual(objects(fromSchema))
   })
 
+  it('give every table the same columns, types, nullability and defaults', () => {
+    expect(columns(fromMigrations)).toEqual(columns(fromSchema))
+  })
+
+  it('apply the same CHECK constraints', () => {
+    expect(checks(fromMigrations)).toEqual(checks(fromSchema))
+  })
+
+  it('define the same indexes', () => {
+    expect(definitions(fromMigrations, 'index')).toEqual(definitions(fromSchema, 'index'))
+  })
+
+  it('define the same triggers', () => {
+    expect(definitions(fromMigrations, 'trigger')).toEqual(definitions(fromSchema, 'trigger'))
+  })
+
   it('seed the same status vocabulary', () => {
-    const q = 'SELECT label, sort_order, is_terminal FROM status ORDER BY sort_order'
+    const q = 'SELECT label, sort_order, is_terminal, tone FROM status ORDER BY sort_order'
     expect(fromMigrations.prepare(q).all()).toEqual(fromSchema.prepare(q).all())
   })
 
