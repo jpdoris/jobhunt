@@ -79,21 +79,28 @@ function toggleStatus(statusId: number) {
 }
 
 function exportCsv() {
+  // `id` first so a re-import has a stable key to match on — company+role is
+  // not unique, since re-applying to the same role is normal. The long free
+  // text goes last, so the scannable columns stay to the left in a spreadsheet.
   const header = [
-    'company', 'role', 'status', 'next_step', 'next_step_date_time',
-    'apply_date', 'job_posting_link', 'contact', 'submitted_to_unemployment', 'notes',
+    'id', 'company', 'role', 'status', 'next_step', 'next_step_date_time',
+    'apply_date', 'job_posting_link', 'contact', 'submitted_to_unemployment',
+    'description', 'notes',
   ]
   const escape = (v: unknown) => {
     const s = v === null || v === undefined ? '' : String(v)
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+    // Descriptions are pasted job postings: they carry commas, quotes and hard
+    // line breaks, so quote on CR as well as LF per RFC 4180.
+    return /["\r\n,]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
   }
   const lines = [
     header.join(','),
     // Exports the current filtered view, not the whole table (docs/PRD.md).
     ...applications.value.map((a) =>
       [
-        a.company, a.role, a.statusLabel, a.nextStepLabel, a.nextStepDateTime,
-        a.applyDate, a.jobPostingLink, a.contact, a.submittedToUnemployment ? 1 : 0, a.notes,
+        a.id, a.company, a.role, a.statusLabel, a.nextStepLabel, a.nextStepDateTime,
+        a.applyDate, a.jobPostingLink, a.contact, a.submittedToUnemployment ? 1 : 0,
+        a.description, a.notes,
       ]
         .map(escape)
         .join(','),

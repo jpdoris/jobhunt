@@ -121,7 +121,7 @@
   --control-h: 36px;
   --focus-ring: 2px solid var(--color-accent);
   /* Lifts a checkbox onto the same baseline as a labelled input beside it. */
-  --baseline-nudge: 9px;
+  --baseline-nudge: 0.25rem;
 
   /* Page measures */
   --measure-wide: 1360px;

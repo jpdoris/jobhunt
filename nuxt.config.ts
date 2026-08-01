@@ -37,4 +37,24 @@ export default defineNuxtConfig({
   typescript: {
     strict: true,
   },
+
+  runtimeConfig: {
+    session: {
+      cookie: {
+        /**
+         * h3 defaults the session cookie to Secure, which browsers refuse to
+         * store or send over plain http. Served at http://jobhunt.test that
+         * makes login fail *silently*: the POST succeeds, the browser drops the
+         * cookie, the auth middleware finds no session and redirects back to
+         * the login page with nothing to show.
+         *
+         * curl does not enforce Secure, so this is invisible to command-line
+         * testing — it only appears in a real browser.
+         *
+         * Set NUXT_SESSION_COOKIE_SECURE=true if this is ever served over https.
+         */
+        secure: false,
+      },
+    },
+  },
 })
