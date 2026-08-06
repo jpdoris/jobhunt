@@ -32,10 +32,21 @@ export interface Application {
   nextStepLabel: string
   /** UTC instant `YYYY-MM-DD HH:MM:SS`. Always rendered in the viewer's zone. */
   nextStepDateTime: string | null
+  /** When the current status began; null if the timeline is empty. */
+  statusChangedAt: string | null
   notes: string | null
   submittedToUnemployment: boolean
   createdAt: string
   updatedAt: string
+}
+
+export interface StatusEvent {
+  id: number
+  statusId: number
+  statusLabel: string
+  statusTone: StatusTone
+  /** UTC instant `YYYY-MM-DD HH:MM:SS`, rendered in the viewer's zone. */
+  changedAt: string
 }
 
 export interface StatusCount {

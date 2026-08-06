@@ -18,7 +18,9 @@ export default defineEventHandler(async (event) => {
       `UPDATE application SET
          company = @company, role = @role, description = @description,
          job_posting_link = @jobPostingLink, contact = @contact,
-         apply_date = @applyDate, status_id = @statusId,
+         apply_date = @applyDate,
+         -- Set before status_id in the same statement so the trigger sees it.
+         status_changed_at = @statusChangedAt, status_id = @statusId,
          next_step_id = @nextStepId, next_step_date_time = @nextStepDateTime,
          notes = @notes, submitted_to_unemployment = @submittedToUnemployment
        WHERE id = @id AND user_id = @userId`,
@@ -27,6 +29,8 @@ export default defineEventHandler(async (event) => {
       id,
       userId,
       ...input,
+      // Null means "now" — the trigger's COALESCE fills it in.
+      statusChangedAt: input.statusChangedAt ?? null,
       submittedToUnemployment: Number(input.submittedToUnemployment),
     })
 

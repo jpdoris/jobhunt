@@ -50,6 +50,7 @@ const SELECT = `
     s.is_terminal AS isTerminal,
     a.next_step_id AS nextStepId, n.label AS nextStepLabel,
     a.next_step_date_time AS nextStepDateTime,
+    a.status_changed_at AS statusChangedAt,
     a.notes, a.submitted_to_unemployment AS submittedToUnemployment,
     a.created_at AS createdAt, a.updated_at AS updatedAt
   FROM application a

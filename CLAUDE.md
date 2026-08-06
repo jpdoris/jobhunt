@@ -38,9 +38,15 @@ Violating any of these is a bug, not a style preference.
    below. Getting this wrong produces off-by-one-day bugs that look like timezone
    flakiness.
 
-7. **Never `INSERT INTO status_event` from application code.** Database triggers
-   append to it on every status change. Writing to it by hand produces duplicate
-   or contradictory history. Just update `application.status_id`.
+7. **Write `status_event` only through `server/utils/history.ts`.** Database
+   triggers append to it on every status change; ordinary code just updates
+   `application.status_id` and lets them. Deliberately correcting history is the
+   one exception, and it goes through that module — which always re-syncs the
+   application to the latest event afterwards. Never `INSERT` inline.
+
+   To record a change as having happened earlier, set
+   `application.status_changed_at` in the same `UPDATE` as `status_id`; the
+   trigger reads it. Leave it null and the trigger stamps now.
 
 8. **Schema changes are a new migration, never an edit to an applied one.** Add
    `migrations/NNNN_description.sql` *and* update `docs/schema.sql` to match.

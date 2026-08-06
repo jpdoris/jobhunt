@@ -19,6 +19,14 @@ export const ApplicationInput = z.object({
   nextStepDateTime: z.preprocess(blankToNull, z.string().regex(DATETIME).nullable()),
   notes: z.preprocess(blankToNull, z.string().nullable()),
   submittedToUnemployment: z.coerce.boolean().default(false),
+  /** Optional: when this status change actually happened. Defaults to now. */
+  statusChangedAt: z.preprocess(blankToNull, z.string().regex(DATETIME).nullable()).optional(),
+})
+
+export const HistoryEventInput = z.object({
+  statusId: z.coerce.number().int().positive(),
+  /** Same UTC shape the column CHECK enforces, so a bad value is a 400 not a 500. */
+  changedAt: z.string().regex(DATETIME, 'Expected YYYY-MM-DD HH:MM:SS in UTC'),
 })
 
 export type ApplicationInput = z.infer<typeof ApplicationInput>

@@ -10,6 +10,10 @@ const props = defineProps<{
 const emit = defineEmits<{ close: []; saved: [] }>()
 
 const editing = computed(() => Boolean(props.application))
+const originalStatusId = props.application?.statusId ?? null
+
+/** Only meaningful when the status actually moves. */
+const statusChanged = computed(() => editing.value && form.statusId !== originalStatusId)
 const error = ref('')
 const pending = ref(false)
 
@@ -23,6 +27,7 @@ const form = reactive({
     props.nextSteps[0]?.id ??
     0,
   nextStepLocal: utcToLocalInput(props.application?.nextStepDateTime ?? null),
+  statusChangedLocal: '',
   applyDate: props.application?.applyDate ?? '',
   jobPostingLink: props.application?.jobPostingLink ?? '',
   contact: props.application?.contact ?? '',
@@ -40,6 +45,12 @@ async function save() {
       role: form.role,
       statusId: form.statusId,
       nextStepId: form.nextStepId,
+      // Omitted unless the status moved and a time was given — the trigger then
+      // stamps "now" as usual.
+      statusChangedAt:
+        statusChanged.value && form.statusChangedLocal
+          ? localInputToUtc(form.statusChangedLocal)
+          : undefined,
       // Converted from the viewer's zone to UTC here, at the edge.
       nextStepDateTime: localInputToUtc(form.nextStepLocal),
       applyDate: form.applyDate,
@@ -87,6 +98,20 @@ async function save() {
           <select id="statusId" v-model.number="form.statusId" class="input">
             <option v-for="s in statuses" :key="s.id" :value="s.id">{{ s.label }}</option>
           </select>
+        </div>
+
+        <div v-if="statusChanged" class="field form-grid__wide">
+          <label for="statusChangedLocal">When did the status change?</label>
+          <input
+            id="statusChangedLocal"
+            v-model="form.statusChangedLocal"
+            class="input"
+            type="datetime-local"
+          />
+          <p class="field__hint text-muted">
+            Leave blank for now. Set it to record a change that happened earlier —
+            response-time analytics read these dates.
+          </p>
         </div>
 
         <div class="field">
@@ -140,6 +165,11 @@ async function save() {
 </template>
 
 <style scoped>
+.field__hint {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

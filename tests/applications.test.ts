@@ -221,3 +221,77 @@ describe('full-text search', () => {
     expect(hits).toHaveLength(0)
   })
 })
+
+describe('backdated history', () => {
+  it('records the supplied time instead of now', () => {
+    const id = insert(ownerId, 'Backdate Co')
+    db.prepare(
+      'UPDATE application SET status_changed_at = ?, status_id = ? WHERE id = ?',
+    ).run('2026-03-02 12:00:00', statusInterview, id)
+
+    const when = db
+      .prepare('SELECT changed_at FROM status_event WHERE application_id = ? ORDER BY id DESC LIMIT 1')
+      .get(id) as { changed_at: string }
+    expect(when.changed_at).toBe('2026-03-02 12:00:00')
+  })
+
+  it('falls back to now when no time is supplied', () => {
+    const id = insert(ownerId, 'Now Co')
+    db.prepare('UPDATE application SET status_id = ? WHERE id = ?').run(statusInterview, id)
+
+    const when = db
+      .prepare('SELECT changed_at FROM status_event WHERE application_id = ? ORDER BY id DESC LIMIT 1')
+      .get(id) as { changed_at: string }
+    // Same shape as the CHECK constraint, and not the backdated value.
+    expect(when.changed_at).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)
+    expect(when.changed_at.startsWith('2026-03-02')).toBe(false)
+  })
+
+  it('rejects a malformed status_changed_at', () => {
+    const id = insert(ownerId, 'Bad Time Co')
+    expect(() =>
+      db.prepare('UPDATE application SET status_changed_at = ? WHERE id = ?').run('2026-03-02', id),
+    ).toThrow(/CHECK/i)
+  })
+
+  /**
+   * Re-syncing after a history edit writes status_id back to the application.
+   * Without the trigger's NOT EXISTS guard that write appends a duplicate of the
+   * very event it came from, and every duration metric inherits the error.
+   */
+  it('does not duplicate an event when the winning status is written back', () => {
+    const id = insert(ownerId, 'Sync Co')
+    db.prepare('UPDATE application SET status_changed_at = ?, status_id = ? WHERE id = ?')
+      .run('2026-04-01 09:00:00', statusInterview, id)
+    const before = db
+      .prepare('SELECT count(*) AS n FROM status_event WHERE application_id = ?')
+      .get(id) as { n: number }
+
+    // Simulate syncCurrentStatus() pointing at the latest event again.
+    db.prepare('UPDATE application SET status_changed_at = ?, status_id = ? WHERE id = ?')
+      .run('2026-04-01 09:00:00', statusInterview, id)
+
+    const after = db
+      .prepare('SELECT count(*) AS n FROM status_event WHERE application_id = ?')
+      .get(id) as { n: number }
+    expect(after.n).toBe(before.n)
+  })
+
+  it('still records a genuine change at the same timestamp as a different status', () => {
+    const id = insert(ownerId, 'Distinct Co')
+    db.prepare('UPDATE application SET status_changed_at = ?, status_id = ? WHERE id = ?')
+      .run('2026-05-01 09:00:00', statusInterview, id)
+    db.prepare('UPDATE application SET status_changed_at = ?, status_id = ? WHERE id = ?')
+      .run('2026-05-01 09:00:00', statusApplied, id)
+
+    const labels = (
+      db
+        .prepare(
+          `SELECT s.label FROM status_event e JOIN status s ON s.id = e.status_id
+           WHERE e.application_id = ? ORDER BY e.id`,
+        )
+        .all(id) as { label: string }[]
+    ).map((r) => r.label)
+    expect(labels).toEqual(['Applied', 'Interview scheduled', 'Applied'])
+  })
+})

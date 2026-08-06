@@ -128,6 +128,15 @@ async function remove() {
       </div>
 
       <div class="section">
+        <h2 class="section__title">History</h2>
+        <StatusTimeline
+          :application-id="application.id"
+          :statuses="lookups?.statuses ?? []"
+          @changed="refresh()"
+        />
+      </div>
+
+      <div class="section">
         <h2 class="section__title">Documents</h2>
 
         <ul v-if="attached?.length" class="doc-list">

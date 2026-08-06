@@ -141,10 +141,20 @@ Every duration metric — time to first response, time to rejection, how long a
 stage takes — is computed from `status_event`, which appends a row on every
 status change.
 
-**`status_event` is maintained entirely by database triggers.** Application code
-never inserts into it, so a transition cannot go unrecorded through forgetfulness.
-Updating a non-status column does not create an event, and setting `status_id` to
-the value it already holds does not either.
+**`status_event` is written by database triggers**, so a transition cannot go
+unrecorded through forgetfulness. Updating a non-status column does not create an
+event, and setting `status_id` to the value it already holds does not either.
+
+**A change can be recorded as having happened earlier.** `application.status_changed_at`
+carries the intended timestamp into the trigger; left null, the trigger stamps
+now. The column doubles as "when the current status began".
+
+**History is editable.** The application page has a timeline editor — add, edit
+or delete entries — because a status changed weeks before you got round to
+clicking it, and because 288 applications imported from the spreadsheet have no
+history at all. `server/utils/history.ts` is the only code allowed to write
+`status_event` directly, and it re-points the application at the most recent
+event after every change, so the badge can never contradict the timeline.
 
 **Seed applications have no history.** The spreadsheet never recorded when a status
 changed, so the import clears the events its own inserts generate rather than
@@ -327,6 +337,11 @@ data, so they come last on purpose.
 
 Every one of these must exclude applications with no history and label its sample
 size, so a metric computed from four data points is never presented as a trend.
+
+Coverage is the constraint, not the queries. **Funnel counts come from current
+status** (every application has one); only the duration metrics need
+`status_event`, which most applications still lack. Backfilling through the
+timeline editor is what grows that sample.
 
 ---
 

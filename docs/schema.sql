@@ -88,7 +88,18 @@ CREATE TABLE application (
     CHECK (submitted_to_unemployment IN (0, 1)),
 
   created_at       TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
+  updated_at       TEXT NOT NULL DEFAULT (datetime('now')),
+
+  -- Added by migration 0004, hence last: ALTER TABLE ADD COLUMN appends.
+  -- When the current status began. Also carries the intended timestamp into the
+  -- status_event triggers, so a status change can be recorded as having happened
+  -- in the past rather than "now".
+  status_changed_at TEXT CHECK (
+    status_changed_at IS NULL OR (
+      status_changed_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-2][0-9]:[0-5][0-9]:[0-5][0-9]'
+      AND CAST(substr(status_changed_at, 12, 2) AS INTEGER) < 24
+    )
+  )
 );
 
 CREATE INDEX application_user_idx           ON application(user_id);
@@ -160,13 +171,24 @@ CREATE INDEX status_event_status_idx      ON status_event(status_id, changed_at)
 
 CREATE TRIGGER application_status_event_insert AFTER INSERT ON application
 BEGIN
-  INSERT INTO status_event(application_id, status_id) VALUES (NEW.id, NEW.status_id);
+  INSERT INTO status_event(application_id, status_id, changed_at)
+  VALUES (NEW.id, NEW.status_id, COALESCE(NEW.status_changed_at, datetime('now')));
 END;
 
+-- The NOT EXISTS guard makes this idempotent. Editing history writes the winning
+-- status back to application.status_id; without the guard that write would fire
+-- this trigger and duplicate the very event it came from.
 CREATE TRIGGER application_status_event_update AFTER UPDATE OF status_id ON application
 WHEN OLD.status_id IS NOT NEW.status_id
+ AND NOT EXISTS (
+   SELECT 1 FROM status_event
+    WHERE application_id = NEW.id
+      AND status_id = NEW.status_id
+      AND changed_at = COALESCE(NEW.status_changed_at, datetime('now'))
+ )
 BEGIN
-  INSERT INTO status_event(application_id, status_id) VALUES (NEW.id, NEW.status_id);
+  INSERT INTO status_event(application_id, status_id, changed_at)
+  VALUES (NEW.id, NEW.status_id, COALESCE(NEW.status_changed_at, datetime('now')));
 END;
 
 -- ---------------------------------------------------------------------------
