@@ -49,6 +49,23 @@ export interface StatusEvent {
   changedAt: string
 }
 
+export interface Analytics {
+  total: number
+  live: number
+  ended: number
+  byStatus: { label: string; tone: string; isTerminal: boolean; count: number }[]
+  perMonth: { month: string; count: number }[]
+  stalledAfterDays: number
+  stalled: { id: number; company: string; role: string | null; statusLabel: string; days: number }[]
+  durations: {
+    /** Every duration carries n — a median of four is not a trend. */
+    response: { n: number; median: number | null; values: number[] }
+    rejection: { n: number; median: number | null }
+    offer: { n: number; median: number | null }
+    withHistory: number
+  }
+}
+
 export interface StatusCount {
   statusId: number
   label: string

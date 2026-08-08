@@ -17,6 +17,7 @@ async function signOut() {
     <NuxtLink to="/">Applications</NuxtLink>
     <NuxtLink to="/documents">Documents</NuxtLink>
     <NuxtLink to="/calendar">Calendar</NuxtLink>
+    <NuxtLink to="/analytics">Analytics</NuxtLink>
     <div class="cluster cluster--end">
       <button v-if="showActions" class="btn btn-secondary" @click="emit('export')">
         <AppIcon name="download" /> Export CSV
