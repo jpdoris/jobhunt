@@ -6,6 +6,7 @@ definePageMeta({ middleware: 'auth' })
 
 const route = useRoute()
 const router = useRouter()
+const { ask } = useConfirm()
 
 const query = computed(() => ({
   search: (route.query.search as string) || undefined,
@@ -147,9 +148,13 @@ async function saveEdit() {
 
 async function remove(doc: DocumentRecord) {
   const used = doc.attachedCount
-    ? ` It is attached to ${doc.attachedCount} application${doc.attachedCount > 1 ? 's' : ''}.`
+    ? `It is attached to ${doc.attachedCount} application${doc.attachedCount > 1 ? 's' : ''}. `
     : ''
-  if (!confirm(`Delete "${doc.title}"?${used} This cannot be undone.`)) return
+  const ok = await ask({
+    title: `Delete "${doc.title}"?`,
+    message: `${used}The file is removed from disk. This cannot be undone.`,
+  })
+  if (!ok) return
   await $fetch(`/api/documents/${doc.id}`, { method: 'DELETE' })
   await refresh()
 }

@@ -12,6 +12,7 @@ import type { StatusEvent, StatusOption } from '#shared/types'
  */
 const props = defineProps<{ applicationId: number; statuses: StatusOption[] }>()
 const emit = defineEmits<{ changed: [] }>()
+const { ask } = useConfirm()
 
 const { data: history, refresh } = await useFetch<StatusEvent[]>(
   () => `/api/applications/${props.applicationId}/history`,
@@ -71,7 +72,11 @@ async function save() {
 }
 
 async function remove(e: StatusEvent) {
-  if (!confirm(`Delete the "${e.statusLabel}" entry from ${formatInstant(e.changedAt)}?`)) return
+  const ok = await ask({
+    title: 'Delete this history entry?',
+    message: `"${e.statusLabel}" on ${formatInstant(e.changedAt)} will be removed. The application's current status is re-read from whatever entry remains most recent.`,
+  })
+  if (!ok) return
   await $fetch(`/api/applications/${props.applicationId}/history/${e.id}`, { method: 'DELETE' })
   await refresh()
   emit('changed')

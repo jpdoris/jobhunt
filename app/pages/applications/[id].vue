@@ -13,6 +13,7 @@ const { data: attached, refresh: refreshAttached } = await useFetch(
 const { data: library } = await useFetch('/api/documents')
 
 const attachId = ref<number | null>(null)
+const { ask } = useConfirm()
 
 /** Only offer documents that are not already on this application. */
 const attachable = computed(() => {
@@ -44,7 +45,11 @@ async function onSaved() {
 }
 
 async function remove() {
-  if (!confirm(`Delete the ${application.value?.company} application? This cannot be undone.`)) return
+  const ok = await ask({
+    title: `Delete the ${application.value?.company} application?`,
+    message: 'Its history is deleted too. Attached documents stay in your library. This cannot be undone.',
+  })
+  if (!ok) return
   await $fetch(`/api/applications/${route.params.id}`, { method: 'DELETE' })
   await navigateTo('/')
 }
