@@ -13,6 +13,35 @@ export type StatusTone = (typeof STATUS_TONES)[number]
 export interface StatusOption extends LookupOption {
   isTerminal: boolean
   tone: StatusTone
+  /** Reaching this status means an interview happened. "Interview scheduled"
+   *  is false — booked is not completed. */
+  isInterview: boolean
+  /** Reaching this status means an offer was made. "Offer declined" is true —
+   *  you can only decline one you were given. */
+  isOffer: boolean
+}
+
+/**
+ * How far an application ever got, as opposed to where it sits now. Every
+ * other filter on the list asks the second question; these ask the first, so
+ * a rejected application still counts as having reached an interview.
+ *
+ * `open` and `closedNoOffer` are present-tense by nature, but they span
+ * several statuses each, so the single-status filter cannot express them.
+ */
+export const MILESTONES = ['interviewed', 'offered', 'open', 'closedNoOffer'] as const
+export type Milestone = (typeof MILESTONES)[number]
+
+export const MILESTONE_LABELS: Record<Milestone, string> = {
+  interviewed: 'Interviewed',
+  offered: 'Offers',
+  open: 'Still open',
+  closedNoOffer: 'Closed, no offer',
+}
+
+/** Absolute counts, unaffected by the active filters — same as StatusCount. */
+export interface MilestoneCounts extends Record<Milestone, number> {
+  total: number
 }
 
 export interface Application {
@@ -53,6 +82,9 @@ export interface Analytics {
   total: number
   live: number
   ended: number
+  /** Applications that reached an interview. Counted from history OR current
+   *  status, so the 200-odd rows with no history still count. */
+  interviewed: number
   byStatus: { label: string; tone: string; isTerminal: boolean; count: number }[]
   perMonth: { month: string; count: number }[]
   stalledAfterDays: number
@@ -143,6 +175,9 @@ export interface ApplicationFilters {
   appliedFrom?: string
   appliedTo?: string
   submittedToUnemployment?: boolean
+  /** One milestone at a time, like the status tiles. Composes with the other
+   *  filters, so "reached an interview, now rejected" is expressible. */
+  milestone?: Milestone
 }
 
 /**

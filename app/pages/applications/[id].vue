@@ -235,14 +235,7 @@ async function remove() {
   color: var(--ink-muted);
 }
 
-.section {
-  margin-bottom: var(--space-6);
-}
-
-.section__title {
-  font-size: var(--text-lg);
-  margin-bottom: var(--space-2);
-}
+/* .section / .section__title are global — four pages use them now. */
 
 /* Descriptions are pasted job postings — preserve their line breaks. */
 .section__body {

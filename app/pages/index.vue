@@ -1,6 +1,13 @@
 <script setup lang="ts">
-import { DEFAULT_SORT, FIRST_CLICK_DIRECTION, statusTagClass } from '#shared/types'
-import type { Application, SortColumn, SortDirection, StatusCount } from '#shared/types'
+import { DEFAULT_SORT, FIRST_CLICK_DIRECTION, MILESTONE_LABELS, statusTagClass } from '#shared/types'
+import type {
+  Application,
+  Milestone,
+  MilestoneCounts,
+  SortColumn,
+  SortDirection,
+  StatusCount,
+} from '#shared/types'
 
 definePageMeta({ middleware: 'auth' })
 
@@ -15,6 +22,7 @@ const filters = computed(() => ({
   appliedFrom: (route.query.appliedFrom as string) || undefined,
   appliedTo: (route.query.appliedTo as string) || undefined,
   submittedToUnemployment: route.query.filed === '1' ? true : undefined,
+  milestone: (route.query.milestone as Milestone) || undefined,
   sort: (route.query.sort as SortColumn) || undefined,
   dir: (route.query.dir as SortDirection) || undefined,
 }))
@@ -57,6 +65,10 @@ const { data: lookups } = await useFetch('/api/lookups')
 
 const applications = computed<Application[]>(() => data.value?.applications ?? [])
 const counts = computed<StatusCount[]>(() => data.value?.counts ?? [])
+const milestones = computed<MilestoneCounts | null>(() => data.value?.milestones ?? null)
+
+/** Order runs journey-first (how far it got), then present state. */
+const MILESTONE_ORDER: Milestone[] = ['interviewed', 'offered', 'open', 'closedNoOffer']
 
 function setQuery(patch: Record<string, string | undefined>) {
   const query = { ...route.query, ...patch }
@@ -76,6 +88,10 @@ const hasFilters = computed(() => Object.keys(route.query).length > 0)
 
 function toggleStatus(statusId: number) {
   setQuery({ statusId: filters.value.statusId === statusId ? undefined : String(statusId) })
+}
+
+function toggleMilestone(milestone: Milestone) {
+  setQuery({ milestone: filters.value.milestone === milestone ? undefined : milestone })
 }
 
 function exportCsv() {
@@ -137,6 +153,45 @@ async function onSaved() {
         </button>
       </div>
 
+      <!-- How far applications ever got. Distinct from the Status tiles below,
+           which only ever describe where an application sits right now. -->
+      <section v-if="milestones" class="section">
+        <h2 class="visually-hidden">Overview</h2>
+        <div class="stat-grid">
+          <button
+            class="card card--button"
+            :class="{ 'card--selected': !filters.milestone }"
+            :aria-pressed="!filters.milestone"
+            @click="setQuery({ milestone: undefined })"
+          >
+            <span class="card-kicker">Total</span>
+            <span class="card-title">{{ milestones.total }}</span>
+          </button>
+          <button
+            v-for="m in MILESTONE_ORDER"
+            :key="m"
+            class="card card--button"
+            :class="{
+              'card--selected': filters.milestone === m,
+              'card--zero': milestones[m] === 0,
+            }"
+            :aria-pressed="filters.milestone === m"
+            @click="toggleMilestone(m)"
+          >
+            <span class="card-kicker">{{ MILESTONE_LABELS[m] }}</span>
+            <span class="card-title">{{ milestones[m] }}</span>
+          </button>
+        </div>
+        <!-- Said once here rather than as three hover targets: the overlap is
+             the part that surprises people. -->
+        <p class="overview-note text-muted">
+          Interviewed and Offers count every application that ever reached that
+          point, including ones since closed — so these overlap and do not sum
+          to the total.
+        </p>
+      </section>
+
+      <h2 class="section__title">Status</h2>
       <div class="stat-grid">
         <button
           v-for="tile in counts"
@@ -340,11 +395,23 @@ async function onSaved() {
 </template>
 
 <style scoped>
+/* Both card sections share the grid, so their columns line up with each other. */
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: var(--space-3);
   margin-bottom: var(--space-6);
+}
+
+/* Inside .section the wrapper already carries the bottom margin. */
+.section .stat-grid {
+  margin-bottom: 0;
+}
+
+.overview-note {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-base);
+  max-width: var(--measure-narrow);
 }
 
 /* Tiles are buttons that filter by status, so they need the button reset. */

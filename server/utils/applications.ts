@@ -4,6 +4,8 @@ import type {
   Application,
   ApplicationFilters,
   LookupOption,
+  Milestone,
+  MilestoneCounts,
   SortColumn,
   SortDirection,
   StatusTone,
@@ -40,6 +42,45 @@ function orderBy(sort?: { column: SortColumn; direction: SortDirection }): strin
   const { column, direction } = sort ?? DEFAULT_SORT
   const dir = direction === 'asc' ? 'ASC' : 'DESC'
   return `ORDER BY ${SORT_SQL[column]} ${dir} NULLS LAST, a.id DESC`
+}
+
+/**
+ * "This application reached an interview." Expects the `a` (application) and
+ * `s` (its current status) aliases the queries here already use.
+ *
+ * History OR current status, deliberately: most applications carry no
+ * status_event at all (the spreadsheet import had no transition dates), so
+ * history alone would report zero for a row sitting at "Interviewed (round 2)".
+ *
+ * Which statuses count is `status.is_interview`, never a label match — see
+ * CLAUDE.md rule 3.
+ */
+const everReached = (flag: 'is_interview' | 'is_offer') => `(
+  s.${flag} = 1
+  OR EXISTS (
+    SELECT 1 FROM status_event e
+      JOIN status es ON es.id = e.status_id
+     WHERE e.application_id = a.id AND es.${flag} = 1
+  )
+)`
+
+export const INTERVIEWED_SQL = everReached('is_interview')
+export const OFFERED_SQL = everReached('is_offer')
+
+/**
+ * The milestone filters. `open` and `closedNoOffer` read current status, which
+ * is right — those are present-tense questions — but each spans several
+ * statuses, so the single-status filter cannot express them.
+ *
+ * closedNoOffer has to consult history too: an application can pass through
+ * `Offer received` and still end at `Expired / Not pursued`, and that is not a
+ * search that ended without an offer.
+ */
+export const MILESTONE_SQL: Record<Milestone, string> = {
+  interviewed: INTERVIEWED_SQL,
+  offered: OFFERED_SQL,
+  open: 's.is_terminal = 0',
+  closedNoOffer: `(s.is_terminal = 1 AND NOT ${OFFERED_SQL})`,
 }
 
 const SELECT = `
@@ -106,6 +147,9 @@ export function listApplications(
   if (filters.submittedToUnemployment) {
     where.push('a.submitted_to_unemployment = 1')
   }
+  if (filters.milestone) {
+    where.push(MILESTONE_SQL[filters.milestone])
+  }
 
   const rows = db
     .prepare(`${SELECT} WHERE ${where.join(' AND ')} ${orderBy(sort)}`)
@@ -142,17 +186,56 @@ export function statusCounts(userId: number): StatusCount[] {
     })
 }
 
+/**
+ * One row, one pass. These deliberately overlap — an application at "Offer
+ * received" is both open and offered, and an interviewed one lands in whichever
+ * of open/closed it ended in — so they are lenses, not a partition, and must
+ * never be presented as though they sum to the total.
+ */
+export function milestoneCounts(userId: number): MilestoneCounts {
+  const sum = (sql: string, alias: Milestone) =>
+    `sum(CASE WHEN ${sql} THEN 1 ELSE 0 END) AS ${alias}`
+
+  const row = useDatabase()
+    .prepare(
+      `SELECT count(*) AS total,
+              ${(Object.keys(MILESTONE_SQL) as Milestone[])
+                .map((m) => sum(MILESTONE_SQL[m], m))
+                .join(',\n              ')}
+         FROM application a
+         JOIN status s ON s.id = a.status_id
+        WHERE a.user_id = @userId`,
+    )
+    .get({ userId }) as Record<string, number | null>
+
+  // sum() over zero rows is NULL, not 0 — a brand new account would render "—".
+  return {
+    total: row.total ?? 0,
+    interviewed: row.interviewed ?? 0,
+    offered: row.offered ?? 0,
+    open: row.open ?? 0,
+    closedNoOffer: row.closedNoOffer ?? 0,
+  }
+}
+
 export function statuses(): StatusOption[] {
   return useDatabase()
     .prepare(
       `SELECT id, label, sort_order AS sortOrder, is_terminal AS isTerminal,
-              is_active AS isActive, tone
+              is_active AS isActive, tone, is_interview AS isInterview,
+              is_offer AS isOffer
        FROM status WHERE is_active = 1 ORDER BY sort_order`,
     )
     .all()
     .map((r) => {
-      const row = r as { id: number; label: string; sortOrder: number; isTerminal: number; isActive: number; tone: StatusTone }
-      return { ...row, isTerminal: Boolean(row.isTerminal), isActive: Boolean(row.isActive) }
+      const row = r as { id: number; label: string; sortOrder: number; isTerminal: number; isActive: number; tone: StatusTone; isInterview: number; isOffer: number }
+      return {
+        ...row,
+        isTerminal: Boolean(row.isTerminal),
+        isActive: Boolean(row.isActive),
+        isInterview: Boolean(row.isInterview),
+        isOffer: Boolean(row.isOffer),
+      }
     })
 }
 

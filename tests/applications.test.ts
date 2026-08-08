@@ -2,6 +2,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import Database from 'better-sqlite3'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { MILESTONE_SQL } from '../server/utils/applications'
+import { MILESTONES } from '../shared/types'
+import type { Milestone } from '../shared/types'
 
 /**
  * Exercises the schema directly rather than through the HTTP layer: the rules
@@ -14,6 +17,11 @@ let ownerId: number
 let otherId: number
 let statusApplied: number
 let statusInterview: number
+let statusInterviewed: number
+let statusRejected: number
+let statusOffer: number
+let statusDeclined: number
+let statusExpired: number
 let nextAwaiting: number
 
 beforeAll(() => {
@@ -34,6 +42,11 @@ beforeAll(() => {
     (db.prepare('SELECT id FROM status WHERE label = ?').get(label) as { id: number }).id
   statusApplied = id('Applied')
   statusInterview = id('Interview scheduled')
+  statusInterviewed = id('Interviewed (round 1)')
+  statusRejected = id('Rejected')
+  statusOffer = id('Offer received')
+  statusDeclined = id('Offer declined')
+  statusExpired = id('Expired / Not pursued')
   nextAwaiting = (
     db.prepare('SELECT id FROM next_step WHERE label = ?').get('Awaiting response') as {
       id: number
@@ -293,5 +306,120 @@ describe('backdated history', () => {
         .all(id) as { label: string }[]
     ).map((r) => r.label)
     expect(labels).toEqual(['Applied', 'Interview scheduled', 'Applied'])
+  })
+})
+
+/**
+ * The list filters and the analytics tile share MILESTONE_SQL, so this covers
+ * both. Run against the real fragments rather than copies — a divergent copy
+ * would pass while the app disagreed with itself.
+ */
+describe('milestone predicates', () => {
+  const hits = (milestone: Milestone, id: number) =>
+    Boolean(
+      (
+        db
+          .prepare(
+            `SELECT ${MILESTONE_SQL[milestone]} AS hit FROM application a
+             JOIN status s ON s.id = a.status_id WHERE a.id = ?`,
+          )
+          .get(id) as { hit: number }
+      ).hit,
+    )
+
+  /** Walks an application through statuses, leaving real history behind. */
+  const walk = (company: string, ...path: number[]) => {
+    const id = insert(ownerId, company)
+    for (const status of path) {
+      db.prepare('UPDATE application SET status_id = ? WHERE id = ?').run(status, id)
+    }
+    return id
+  }
+
+  it('every milestone has SQL', () => {
+    expect(Object.keys(MILESTONE_SQL).sort()).toEqual([...MILESTONES].sort())
+  })
+
+  describe('interviewed', () => {
+    it('is false for an application that never moved past Applied', () => {
+      expect(hits('interviewed', walk('Never Co'))).toBe(false)
+    })
+
+    it('is false for a scheduled but not yet completed interview', () => {
+      expect(hits('interviewed', walk('Booked Co', statusInterview))).toBe(false)
+    })
+
+    it('is true at an interviewed status', () => {
+      expect(hits('interviewed', walk('Sat Down Co', statusInterviewed))).toBe(true)
+    })
+
+    it('stays true after the application ends in rejection', () => {
+      expect(hits('interviewed', walk('Then Rejected Co', statusInterviewed, statusRejected))).toBe(
+        true,
+      )
+    })
+
+    // The imported rows are exactly this shape: a current status and no events.
+    it('is true from the current status alone when there is no history', () => {
+      const id = walk('No History Co', statusInterviewed)
+      db.prepare('DELETE FROM status_event WHERE application_id = ?').run(id)
+      expect(hits('interviewed', id)).toBe(true)
+    })
+  })
+
+  describe('offered', () => {
+    it('is false when no offer was ever made', () => {
+      expect(hits('offered', walk('No Offer Co', statusInterviewed, statusRejected))).toBe(false)
+    })
+
+    it('is true at Offer received', () => {
+      expect(hits('offered', walk('Got One Co', statusOffer))).toBe(true)
+    })
+
+    // The whole reason is_offer exists rather than reusing is_terminal.
+    it('is true at Offer declined — you can only decline one you were given', () => {
+      expect(hits('offered', walk('Declined Co', statusDeclined))).toBe(true)
+    })
+
+    it('is true when the offer is only in history', () => {
+      expect(hits('offered', walk('Lapsed Co', statusOffer, statusExpired))).toBe(true)
+    })
+  })
+
+  describe('open', () => {
+    it('is true for a live application', () => {
+      expect(hits('open', walk('Live Co'))).toBe(true)
+    })
+
+    it('is false once it reaches a terminal status', () => {
+      expect(hits('open', walk('Done Co', statusRejected))).toBe(false)
+    })
+
+    // Offer received is deliberately non-terminal: it is still in play.
+    it('is true at Offer received', () => {
+      expect(hits('open', walk('Deciding Co', statusOffer))).toBe(true)
+    })
+  })
+
+  describe('closedNoOffer', () => {
+    it('is true for a plain rejection', () => {
+      expect(hits('closedNoOffer', walk('Rejected Co', statusRejected))).toBe(true)
+    })
+
+    it('is false while the application is still open', () => {
+      expect(hits('closedNoOffer', walk('Still Going Co', statusInterviewed))).toBe(false)
+    })
+
+    it('is false at Offer declined', () => {
+      expect(hits('closedNoOffer', walk('Turned Down Co', statusDeclined))).toBe(false)
+    })
+
+    // Closed at a no-offer status, but an offer did happen — the case that
+    // makes this more than `is_terminal = 1 AND status is not an offer`.
+    it('is false when an offer appears only in history', () => {
+      expect(hits('closedNoOffer', walk('Offer Then Lapsed Co', statusOffer, statusExpired))).toBe(
+        false,
+      )
+    })
   })
 })

@@ -1,4 +1,5 @@
 import { useDatabase } from '../database'
+import { INTERVIEWED_SQL } from './applications'
 import type { Analytics } from '#shared/types'
 
 /**
@@ -44,6 +45,18 @@ export function analytics(userId: number, stalledAfterDays = 30): Analytics {
   const total = byStatus.reduce((n, s) => n + s.count, 0)
   const live = byStatus.filter((s) => !s.isTerminal).reduce((n, s) => n + s.count, 0)
 
+  // Same rule as the list filter, so the tile and the filtered view agree.
+  const interviewed = (
+    db
+      .prepare(
+        `SELECT count(*) AS n
+           FROM application a
+           JOIN status s ON s.id = a.status_id
+          WHERE a.user_id = @userId AND ${INTERVIEWED_SQL}`,
+      )
+      .get({ userId }) as { n: number }
+  ).n
+
   const perMonth = db
     .prepare(
       `SELECT substr(apply_date, 1, 7) AS month, count(*) AS count
@@ -70,7 +83,8 @@ export function analytics(userId: number, stalledAfterDays = 30): Analytics {
   // possible and meaningless. Drop those rather than let them drag the median.
   const responseDays = firstMoves.map((r) => days(r.applyDate, r.movedAt)).filter((d) => d >= 0)
 
-  const outcomeDays = (label: string) =>
+  /** `match` is a predicate on the event's status, aliased `s`. */
+  const outcomeDays = (match: string) =>
     (
       db
         .prepare(
@@ -78,16 +92,21 @@ export function analytics(userId: number, stalledAfterDays = 30): Analytics {
              FROM application a
              JOIN status_event e ON e.application_id = a.id
              JOIN status s ON s.id = e.status_id
-            WHERE a.user_id = @userId AND a.apply_date IS NOT NULL AND s.label = @label
+            WHERE a.user_id = @userId AND a.apply_date IS NOT NULL AND ${match}
             GROUP BY a.id`,
         )
-        .all({ userId, label }) as { applyDate: string; reachedAt: string }[]
+        .all({ userId }) as { applyDate: string; reachedAt: string }[]
     )
       .map((r) => days(r.applyDate, r.reachedAt))
       .filter((d) => d >= 0)
 
-  const rejection = outcomeDays('Rejected')
-  const offer = outcomeDays('Offer received')
+  // TODO: 'Rejected' is still a label match, and rule 3 says it should not be.
+  // is_terminal is too broad (it catches Expired and both Offer outcomes), so
+  // fixing it properly means another flag — deliberately not done here.
+  const rejection = outcomeDays(`s.label = 'Rejected'`)
+  // is_offer rather than label = 'Offer received': history that jumps straight
+  // to "Offer accepted" is still an offer, and the label match missed it.
+  const offer = outcomeDays('s.is_offer = 1')
 
   /* Stalled — live applications with no movement lately. Falls back to
      apply_date, so the 288 imported rows with no history still qualify. */
@@ -118,6 +137,7 @@ export function analytics(userId: number, stalledAfterDays = 30): Analytics {
     total,
     live,
     ended: total - live,
+    interviewed,
     byStatus,
     perMonth,
     stalledAfterDays,

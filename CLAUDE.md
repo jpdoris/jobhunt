@@ -25,7 +25,15 @@ Violating any of these is a bug, not a style preference.
 3. **Never hardcode a status or next-step label in logic.** "Still live" is
    `status.is_terminal = 0`, never `status.label != 'Rejected'`. Tag colour is
    `status.tone`, never a regex on the label — that was a real bug, fixed in
-   migration 0003. The owner may relabel values at any time.
+   migration 0003. "Has interviewed" is `status.is_interview = 1`, never
+   `label LIKE 'Interviewed%'` — and it excludes "Interview scheduled", which is
+   booked, not completed. "Had an offer" is `status.is_offer = 1`, which includes
+   "Offer declined". The owner may relabel values at any time.
+
+   A question of the form "did this application ever reach X?" is a milestone,
+   and milestones live in `MILESTONE_SQL` in `server/utils/applications.ts` —
+   one definition shared by the list filter, the tiles, and analytics, so they
+   cannot drift apart. Adding one means a flag column, not a label test.
 
 4. **Never `DELETE` a lookup row that applications reference.** The FK will refuse.
    Set `is_active = 0` to retire it; pickers hide it, existing rows still render.

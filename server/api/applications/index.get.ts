@@ -1,7 +1,7 @@
 import { z } from 'zod'
-import { SORT_COLUMNS } from '#shared/types'
+import { MILESTONES, SORT_COLUMNS } from '#shared/types'
 import { parseOr400 } from '../../utils/validation'
-import { listApplications, statusCounts } from '../../utils/applications'
+import { listApplications, milestoneCounts, statusCounts } from '../../utils/applications'
 import { requireUserId } from '../../utils/session'
 
 const Query = z.object({
@@ -11,6 +11,7 @@ const Query = z.object({
   appliedFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   appliedTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   submittedToUnemployment: z.coerce.boolean().optional(),
+  milestone: z.enum(MILESTONES).optional(),
   // Zod enum, so an unknown column is a 400 rather than reaching ORDER BY.
   sort: z.enum(SORT_COLUMNS).optional(),
   dir: z.enum(['asc', 'desc']).optional(),
@@ -23,5 +24,6 @@ export default defineEventHandler(async (event) => {
   return {
     applications: listApplications(userId, filters, order),
     counts: statusCounts(userId),
+    milestones: milestoneCounts(userId),
   }
 })

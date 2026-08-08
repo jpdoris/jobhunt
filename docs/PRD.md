@@ -292,9 +292,42 @@ These are genuine re-applications. Do not add deduplication.
   Sorting runs in SQL over the whole filtered set; status and next step sort by
   `sort_order`, not alphabetically.
 - **Full-text search** across company, role, description, notes via FTS5.
-- **Filters**, combinable: status, next step, date range on apply date, and
-  `submitted_to_unemployment`. Filter and sort state live in the URL query string,
-  so views are bookmarkable and survive reload.
+- **Filters**, combinable: status, next step, date range on apply date,
+  `submitted_to_unemployment`, and one milestone. Filter and sort state live in
+  the URL query string, so views are bookmarkable and survive reload.
+
+- **Milestones** — *how far did this application ever get*, as opposed to where
+  it sits now. Every other count on the page answers the second question only,
+  which means a rejection erases the fact that you interviewed. Surfaced as an
+  unlabelled card row above the Status tiles; each card is also a filter, and
+  one applies at a time, like the Status tiles.
+
+  | Card | Means |
+  | ---- | ----- |
+  | Total | Every application. Clears the milestone filter. |
+  | Interviewed | An interview happened, now or earlier in its history. |
+  | Offers | An offer was made, now or earlier in its history. |
+  | Still open | Current status is non-terminal. |
+  | Closed, no offer | Terminal, and no offer anywhere in its history. |
+
+  Two rules govern these:
+
+  **Never match a label** (CLAUDE.md rule 3). Membership comes from
+  `status.is_interview` and `status.is_offer`. Neither is derivable from what
+  already existed: "Interview scheduled" shares the `active` tone and sits
+  adjacent in `sort_order` but is booked rather than completed, and `is_terminal`
+  cannot express "closed without an offer" because `Offer declined` is terminal
+  *and* had an offer.
+
+  **Match on history *or* current status.** Most rows carry no `status_event` at
+  all, so history alone would report zero for an application sitting at
+  "Interviewed (round 2)". Conversely `closedNoOffer` has to consult history, or
+  an application that passed through `Offer received` on its way to
+  `Expired / Not pursued` would be miscounted as a search that never got one.
+
+  The cards **overlap and do not sum to the total** — an application at
+  `Offer received` is both open and offered — so they are lenses, not a funnel,
+  and the UI says so rather than inviting the arithmetic.
 - **Create / edit / delete** an application, with status and next step as dropdowns
   fed from the lookup tables.
 - **Status counts** — one tile per active status. Zero-count statuses still render,
@@ -334,6 +367,8 @@ data, so they come last on purpose.
 - **Stage durations** — how long applications sit in each non-terminal status.
 - **Currently stalled** — open applications whose last `status_event` is older than
   some threshold. Likely the most immediately useful of the set.
+- **Interviewed** — a count tile only, matching the list filter of the same name.
+  Full coverage, not history-dependent, because it falls back to current status.
 
 Every one of these must exclude applications with no history and label its sample
 size, so a metric computed from four data points is never presented as a trend.

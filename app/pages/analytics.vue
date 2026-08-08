@@ -51,6 +51,13 @@ const pct = (n: number, of: number) => (of ? Math.round((n / of) * 100) : 0)
           <span class="card-title">{{ data.ended }}</span>
           <span class="kpi__note text-muted">{{ pct(data.ended, data.total) }}% of all</span>
         </div>
+        <!-- History OR current status, so rows imported without transition
+             dates still count. -->
+        <div class="card">
+          <span class="card-kicker">Interviewed</span>
+          <span class="card-title">{{ data.interviewed }}</span>
+          <span class="kpi__note text-muted">{{ pct(data.interviewed, data.total) }}% of all</span>
+        </div>
         <div class="card">
           <span class="card-kicker">Stalled {{ data.stalledAfterDays }}d+</span>
           <span class="card-title">{{ data.stalled.length }}</span>

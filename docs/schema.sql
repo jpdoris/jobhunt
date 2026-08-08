@@ -41,7 +41,16 @@ CREATE TABLE status (
   -- which is why this cannot be derived from is_terminal.
   --   quiet | active | positive | closed
   tone        TEXT NOT NULL DEFAULT 'quiet'
-    CHECK (tone IN ('quiet', 'active', 'positive', 'closed'))
+    CHECK (tone IN ('quiet', 'active', 'positive', 'closed')),
+  -- Added by migration 0005, hence last: ALTER TABLE ADD COLUMN appends.
+  -- Whether reaching this status means an interview actually happened.
+  -- Excludes 'Interview scheduled' — booked is not completed. Cannot be
+  -- derived from tone or sort_order, so it is its own flag.
+  is_interview INTEGER NOT NULL DEFAULT 0 CHECK (is_interview IN (0, 1)),
+  -- Added by migration 0006, hence last. Whether an offer was actually made.
+  -- 'Offer declined' counts — you can only decline one you were given — which
+  -- is why "closed without an offer" cannot be derived from is_terminal.
+  is_offer INTEGER NOT NULL DEFAULT 0 CHECK (is_offer IN (0, 1))
 );
 
 CREATE TABLE next_step (
@@ -269,20 +278,20 @@ END;
 -- Seed vocabularies
 -- ---------------------------------------------------------------------------
 
-INSERT INTO status (label, sort_order, is_terminal, tone) VALUES
-  ('Applied',                                10, 0, 'quiet'),
-  ('Contacted recruiter',                    20, 0, 'quiet'),
-  ('Interview scheduled',                    30, 0, 'active'),
-  ('Interviewed (round 1)',                  40, 0, 'active'),
-  ('Interviewed (round 2)',                  50, 0, 'active'),
-  ('Interviewed (round 3)',                  60, 0, 'active'),
-  ('Interviewed (round 4)',                  70, 0, 'active'),
-  ('Offer received',                         80, 0, 'positive'),
-  ('Offer declined',                         90, 1, 'closed'),
-  ('Offer accepted',                        100, 1, 'positive'),
-  ('Rejected',                              110, 1, 'closed'),
+INSERT INTO status (label, sort_order, is_terminal, tone, is_interview, is_offer) VALUES
+  ('Applied',                                10, 0, 'quiet',    0, 0),
+  ('Contacted recruiter',                    20, 0, 'quiet',    0, 0),
+  ('Interview scheduled',                    30, 0, 'active',   0, 0),
+  ('Interviewed (round 1)',                  40, 0, 'active',   1, 0),
+  ('Interviewed (round 2)',                  50, 0, 'active',   1, 0),
+  ('Interviewed (round 3)',                  60, 0, 'active',   1, 0),
+  ('Interviewed (round 4)',                  70, 0, 'active',   1, 0),
+  ('Offer received',                         80, 0, 'positive', 0, 1),
+  ('Offer declined',                         90, 1, 'closed',   0, 1),
+  ('Offer accepted',                        100, 1, 'positive', 0, 1),
+  ('Rejected',                              110, 1, 'closed',   0, 0),
   -- Ended without a decision: posting pulled, or not pursued.
-  ('Expired / Not pursued',                 120, 1, 'closed');
+  ('Expired / Not pursued',                 120, 1, 'closed',   0, 0);
 
 INSERT INTO document_kind (label, sort_order) VALUES
   ('Resume',       10),

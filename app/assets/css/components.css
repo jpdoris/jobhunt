@@ -443,6 +443,17 @@ textarea.input {
   margin: 0;
 }
 
+/* A titled block within a page. Used by the applications list, the detail page,
+   the calendar and analytics — the size/weight pair comes from base.css. */
+.section {
+  margin-bottom: var(--space-6);
+}
+
+.section__title {
+  font-size: var(--text-lg);
+  margin-bottom: var(--space-2);
+}
+
 .cluster {
   display: flex;
   align-items: center;
