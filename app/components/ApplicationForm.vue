@@ -9,6 +9,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{ close: []; saved: [] }>()
 
+const backdrop = useBackdropDismiss(() => emit('close'))
+
 const editing = computed(() => Boolean(props.application))
 const originalStatusId = props.application?.statusId ?? null
 
@@ -75,7 +77,7 @@ async function save() {
 </script>
 
 <template>
-  <div class="dialog-backdrop" @click.self="emit('close')">
+  <div class="dialog-backdrop" v-on="backdrop">
     <form class="dialog" @submit.prevent="save">
       <div class="dialog-title">{{ editing ? 'Edit application' : 'New application' }}</div>
 

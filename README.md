@@ -84,6 +84,7 @@ there. The import is idempotent: running it twice leaves one copy, not two.
 | `npm run dev` | Dev server on 127.0.0.1:3000 |
 | `npm run build` | Production build into `.output/` |
 | `npm test` | Vitest |
+| `npm run test:watch` | Vitest in watch mode |
 | `npm run db:migrate` | Apply pending migrations |
 | `npm run db:status` | List applied / pending migrations |
 | `npm run db:reset` | **Destructive** — drop everything and re-apply |

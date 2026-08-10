@@ -75,6 +75,7 @@ onBeforeUnmount(() => clearTimeout(timer))
 /* Upload ------------------------------------------------------------------ */
 
 const showUpload = ref(false)
+const uploadBackdrop = useBackdropDismiss(() => (showUpload.value = false))
 const uploading = ref(false)
 const error = ref('')
 const notice = ref('')
@@ -129,6 +130,7 @@ async function upload() {
 /* Edit / delete ----------------------------------------------------------- */
 
 const editing = ref<DocumentRecord | null>(null)
+const editBackdrop = useBackdropDismiss(() => (editing.value = null))
 const editForm = reactive({ title: '', kindId: 1, contentText: '' })
 
 async function openEdit(doc: DocumentRecord) {
@@ -254,7 +256,7 @@ async function remove(doc: DocumentRecord) {
     </main>
 
     <!-- Upload -->
-    <div v-if="showUpload" class="dialog-backdrop" @click.self="showUpload = false">
+    <div v-if="showUpload" class="dialog-backdrop" v-on="uploadBackdrop">
       <form class="dialog" @submit.prevent="upload">
         <div class="dialog-title">Add document</div>
 
@@ -307,7 +309,7 @@ async function remove(doc: DocumentRecord) {
     </div>
 
     <!-- Edit -->
-    <div v-if="editing" class="dialog-backdrop" @click.self="editing = null">
+    <div v-if="editing" class="dialog-backdrop" v-on="editBackdrop">
       <form class="dialog" @submit.prevent="saveEdit">
         <div class="dialog-title">Edit document</div>
 

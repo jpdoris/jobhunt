@@ -27,9 +27,7 @@ function onCancel(event: Event) {
 }
 
 /** showModal() sizes the dialog to its content, so a click outside it is on the element itself. */
-function onBackdropClick(event: MouseEvent) {
-  if (event.target === el.value) settle(false)
-}
+const backdrop = useBackdropDismiss(() => settle(false))
 </script>
 
 <template>
@@ -38,7 +36,7 @@ function onBackdropClick(event: MouseEvent) {
     class="dialog confirm"
     aria-labelledby="confirm-title"
     @cancel="onCancel"
-    @click="onBackdropClick"
+    v-on="backdrop"
   >
     <div v-if="state.request" class="confirm__body">
       <h2 id="confirm-title" class="dialog-title">{{ state.request.title }}</h2>
