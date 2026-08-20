@@ -7,6 +7,14 @@ export interface LookupOption {
   isActive: boolean
 }
 
+/** `next_step` specifically. The other lookups have no flags of their own. */
+export interface NextStepOption extends LookupOption {
+  /** The "nothing pending" option. An application whose status turns terminal
+   *  is moved to it automatically and loses its next-step date. Flagged rather
+   *  than matched on the label 'None' — see CLAUDE.md rule 3. */
+  isNone: boolean
+}
+
 export const STATUS_TONES = ['quiet', 'active', 'positive', 'closed'] as const
 export type StatusTone = (typeof STATUS_TONES)[number]
 

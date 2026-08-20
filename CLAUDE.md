@@ -61,6 +61,15 @@ Violating any of these is a bug, not a style preference.
    `db:migrate` checksums applied files and refuses to run if one changed, and
    `tests/schema-drift.test.ts` fails if the two sources disagree.
 
+9. **A terminal status closes out the next step.** Reaching `is_terminal = 1`
+   forces `next_step_id` to the option flagged `next_step.is_none` and clears
+   `next_step_date_time` — closed means nothing is pending, and a rejected
+   application must not keep a phantom interview on the calendar. The rule is
+   `closedNextStepSql` in `server/utils/applications.ts`, one definition shared
+   by the create endpoint, the edit endpoint, and `syncCurrentStatus`. Any new
+   write path that sets `status_id` uses it too. Reopening does not restore the
+   old next step — nothing records what it was.
+
 ## Dates vs. instants
 
 | Column                     | Kind                   | Format                | Converts?                        |
@@ -216,6 +225,7 @@ nothing to the deployed app.
 - **`contact` is sparse** — 9 of 291 rows. Don't build features that assume it.
 - **`next_step_date_time` is empty on all 291 seed rows.** The spreadsheet never
   captured it, so the calendar and reminders start empty and fill in going forward.
+  It is also cleared whenever a status turns terminal — see rule 9.
 - **Seeded applications have no `status_event` history**, deliberately — the
   spreadsheet never recorded transition dates, so the import clears the events its
   inserts generate rather than inventing timestamps. Every duration metric must

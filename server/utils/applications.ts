@@ -3,9 +3,9 @@ import { DEFAULT_SORT } from '#shared/types'
 import type {
   Application,
   ApplicationFilters,
-  LookupOption,
   Milestone,
   MilestoneCounts,
+  NextStepOption,
   SortColumn,
   SortDirection,
   StatusTone,
@@ -81,6 +81,41 @@ export const MILESTONE_SQL: Record<Milestone, string> = {
   offered: OFFERED_SQL,
   open: 's.is_terminal = 0',
   closedNoOffer: `(s.is_terminal = 1 AND NOT ${OFFERED_SQL})`,
+}
+
+/**
+ * Closing an application closes out its next step.
+ *
+ * A terminal status means nothing is pending, so the next step moves to the
+ * "nothing pending" option and the next-step date is dropped — otherwise a
+ * rejected application keeps a phantom interview on the calendar and shows a
+ * date beside "None" in the list.
+ *
+ * Both halves are flags, never labels (CLAUDE.md rule 3): `status.is_terminal`
+ * decides that the application is closed, `next_step.is_none` decides which
+ * option it lands on. Expressed as SQL rather than as a lookup in TypeScript so
+ * it lands in the same statement as the status change, and so every write path
+ * — create, edit, and the history re-sync — can share one definition.
+ *
+ * `fallback` is what to store when the status is *not* terminal: the incoming
+ * `@nextStepId` / `@nextStepDateTime` on the write endpoints, or the row's own
+ * columns where the status is moving on its own. Reopening never restores a
+ * next step — nothing records what it used to be.
+ *
+ * COALESCE covers a database with nothing flagged is_none: next_step_id is NOT
+ * NULL, and a 500 on save would be a worse failure than an unchanged next step.
+ */
+export function closedNextStepSql(
+  idFallback: string,
+  dateTimeFallback: string,
+): { id: string; dateTime: string } {
+  const closed = '(SELECT is_terminal FROM status WHERE id = @statusId) = 1'
+  return {
+    id: `CASE WHEN ${closed}
+              THEN COALESCE((SELECT id FROM next_step WHERE is_none = 1), ${idFallback})
+              ELSE ${idFallback} END`,
+    dateTime: `CASE WHEN ${closed} THEN NULL ELSE ${dateTimeFallback} END`,
+  }
 }
 
 const SELECT = `
@@ -239,16 +274,17 @@ export function statuses(): StatusOption[] {
     })
 }
 
-export function nextSteps(): LookupOption[] {
+export function nextSteps(): NextStepOption[] {
   return useDatabase()
     .prepare(
-      `SELECT id, label, sort_order AS sortOrder, is_active AS isActive
+      `SELECT id, label, sort_order AS sortOrder, is_active AS isActive,
+              is_none AS isNone
        FROM next_step WHERE is_active = 1 ORDER BY sort_order`,
     )
     .all()
     .map((r) => {
-      const row = r as { id: number; label: string; sortOrder: number; isActive: number }
-      return { ...row, isActive: Boolean(row.isActive) }
+      const row = r as { id: number; label: string; sortOrder: number; isActive: number; isNone: number }
+      return { ...row, isActive: Boolean(row.isActive), isNone: Boolean(row.isNone) }
     })
 }
 

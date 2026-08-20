@@ -115,6 +115,12 @@ describe('schema.sql and migrations/ agree', () => {
     expect(fromMigrations.prepare(q).all()).toEqual(fromSchema.prepare(q).all())
   })
 
+  // Only next_step carries this flag, so it sits outside the shared loop below.
+  it('flag the same next step as "nothing pending"', () => {
+    const q = 'SELECT label FROM next_step WHERE is_none = 1'
+    expect(fromMigrations.prepare(q).all()).toEqual(fromSchema.prepare(q).all())
+  })
+
   it('seed the same next-step and document vocabularies', () => {
     for (const table of ['next_step', 'document_kind']) {
       const q = `SELECT label, sort_order FROM ${table} ORDER BY sort_order`

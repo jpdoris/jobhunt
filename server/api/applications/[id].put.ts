@@ -1,5 +1,5 @@
 import { useDatabase } from '../../database'
-import { getApplication } from '../../utils/applications'
+import { closedNextStepSql, getApplication } from '../../utils/applications'
 import { requireUserId } from '../../utils/session'
 import { ApplicationInput, parseOr400 } from '../../utils/validation'
 
@@ -9,6 +9,11 @@ export default defineEventHandler(async (event) => {
   if (!Number.isInteger(id)) throw createError({ statusCode: 400, statusMessage: 'Bad id' })
 
   const input = parseOr400(ApplicationInput, await readBody(event))
+
+  // Moving to a terminal status overrides whatever next step was submitted:
+  // closed means nothing is pending. The form shows this before saving, so it
+  // is a confirmation rather than a surprise.
+  const nextStep = closedNextStepSql('@nextStepId', '@nextStepDateTime')
 
   // The user_id predicate is what stops one user editing another's row; without
   // it this would happily update any id. Changing status_id here fires the
@@ -21,7 +26,8 @@ export default defineEventHandler(async (event) => {
          apply_date = @applyDate,
          -- Set before status_id in the same statement so the trigger sees it.
          status_changed_at = @statusChangedAt, status_id = @statusId,
-         next_step_id = @nextStepId, next_step_date_time = @nextStepDateTime,
+         next_step_id = ${nextStep.id},
+         next_step_date_time = ${nextStep.dateTime},
          notes = @notes, submitted_to_unemployment = @submittedToUnemployment
        WHERE id = @id AND user_id = @userId`,
     )

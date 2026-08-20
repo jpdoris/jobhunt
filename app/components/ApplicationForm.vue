@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { Application, LookupOption, StatusOption } from '#shared/types'
+import type { Application, NextStepOption, StatusOption } from '#shared/types'
 
 const props = defineProps<{
   statuses: StatusOption[]
-  nextSteps: LookupOption[]
+  nextSteps: NextStepOption[]
   application?: Application | null
 }>()
 
@@ -37,6 +37,30 @@ const form = reactive({
   description: props.application?.description ?? '',
   notes: props.application?.notes ?? '',
 })
+
+/* Closing an application closes out its next step ------------------------- */
+
+/** Both flags, never labels — CLAUDE.md rule 3. */
+const closed = computed(
+  () => props.statuses.find((s) => s.id === form.statusId)?.isTerminal ?? false,
+)
+const noneStep = computed(() => props.nextSteps.find((n) => n.isNone) ?? null)
+
+/**
+ * The server applies this on save regardless (closedNextStepSql). Mirroring it
+ * here means the user sees the next step close out as they pick the status,
+ * rather than finding it changed underneath them afterwards. Immediate, so
+ * editing an already-closed application shows the same thing.
+ */
+watch(
+  closed,
+  (isClosed) => {
+    if (!isClosed) return
+    if (noneStep.value) form.nextStepId = noneStep.value.id
+    form.nextStepLocal = ''
+  },
+  { immediate: true },
+)
 
 async function save() {
   error.value = ''
@@ -118,14 +142,29 @@ async function save() {
 
         <div class="field">
           <label for="nextStepId">Next step</label>
-          <select id="nextStepId" v-model.number="form.nextStepId" class="input">
+          <select
+            id="nextStepId"
+            v-model.number="form.nextStepId"
+            class="input"
+            :disabled="closed"
+          >
             <option v-for="n in nextSteps" :key="n.id" :value="n.id">{{ n.label }}</option>
           </select>
         </div>
         <div class="field">
           <label for="nextStepLocal">Next step date &amp; time</label>
-          <input id="nextStepLocal" v-model="form.nextStepLocal" class="input" type="datetime-local" />
+          <input
+            id="nextStepLocal"
+            v-model="form.nextStepLocal"
+            class="input"
+            type="datetime-local"
+            :disabled="closed"
+          />
         </div>
+        <p v-if="closed" class="field__hint form-grid__wide text-muted">
+          This status closes the application, so its next step is
+          {{ noneStep?.label ?? 'cleared' }} and any date is dropped.
+        </p>
 
         <div class="field form-grid__wide">
           <label for="jobPostingLink">Job posting link</label>

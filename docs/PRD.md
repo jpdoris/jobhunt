@@ -125,7 +125,8 @@ Tables:
 
 - **`user`** — id, email, password hash.
 - **`status`**, **`next_step`**, **`document_kind`** — lookup tables with `label`,
-  `sort_order`, `is_active`, plus `is_terminal` and `tone` on `status`.
+  `sort_order`, `is_active`, plus `is_terminal`, `tone`, `is_interview` and
+  `is_offer` on `status` and `is_none` on `next_step`.
 - **`application`** — the working table, `user_id`-scoped, with FKs to the lookups.
 - **`status_event`** — append-only history of status changes. See
   [Status history](#status-history).
@@ -210,6 +211,27 @@ by hand and re-runs the migration. Three rules follow, and all three matter:
 `sort_order` drives display order everywhere. It is sparse (10, 20, 30…) so options
 can be inserted between existing ones without renumbering.
 
+### Closing an application
+
+A terminal status means nothing is pending, so reaching one **moves the next step
+to the option flagged `next_step.is_none` and clears `next_step_date_time`**.
+Without it a rejected application keeps a booked interview on the calendar and
+shows a date beside a next step that will never happen.
+
+The flag exists for the same reason `is_terminal` and `is_offer` do: which option
+means "nothing pending" cannot be a match on the label `None`, which the owner may
+rename (CLAUDE.md rule 3).
+
+It applies on **every** path that sets a status — creating an application already
+closed, editing one into a terminal status, and a history edit whose winning event
+is terminal — from a single definition, `closedNextStepSql`. The form mirrors it
+live, disabling both fields as soon as a terminal status is picked, so the change
+is visible before saving rather than a surprise afterwards.
+
+**Reopening does not restore the old next step.** Nothing records what it was, so
+an application moved back to a live status keeps "None" until the owner picks one.
+The old date is gone for good; `status_event` still records what happened and when.
+
 ### Field notes
 
 - **`description`** — free text, either a pasted job description or empty. Long;
@@ -218,7 +240,8 @@ can be inserted between existing ones without renumbering.
 - **`next_step_date_time`** — when the next step happens, date _and_ time. It is
   interpreted against whatever `next_step` says, so it is the screener slot, the
   round-2 slot, or the follow-up reminder depending on context. Drives the calendar
-  and reminders. Nullable — most applications never get one.
+  and reminders. Nullable — most applications never get one, and it is cleared
+  when the application closes. See [Closing an application](#closing-an-application).
 - **`submitted_to_unemployment`** — boolean, filed with unemployment as proof of search.
   A required weekly filing, so it must be filterable and exportable.
 - **`role`** is nullable; four seed rows lack one. New applications should require it.
@@ -329,7 +352,8 @@ These are genuine re-applications. Do not add deduplication.
   `Offer received` is both open and offered — so they are lenses, not a funnel,
   and the UI says so rather than inviting the arithmetic.
 - **Create / edit / delete** an application, with status and next step as dropdowns
-  fed from the lookup tables.
+  fed from the lookup tables. Picking a terminal status closes out the next step —
+  see [Closing an application](#closing-an-application).
 - **Status counts** — one tile per active status. Zero-count statuses still render,
   so the empty parts of the pipeline are visible.
 - **CSV export** of the current filtered view, not the whole table.

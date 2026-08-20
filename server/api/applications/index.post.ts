@@ -1,11 +1,15 @@
 import { useDatabase } from '../../database'
-import { getApplication } from '../../utils/applications'
+import { closedNextStepSql, getApplication } from '../../utils/applications'
 import { requireUserId } from '../../utils/session'
 import { ApplicationInput, parseOr400 } from '../../utils/validation'
 
 export default defineEventHandler(async (event) => {
   const userId = await requireUserId(event)
   const input = parseOr400(ApplicationInput, await readBody(event))
+
+  // Filed as already closed — a rejection logged after the fact — still has no
+  // next step, so the same rule applies here as on the way to a terminal status.
+  const nextStep = closedNextStepSql('@nextStepId', '@nextStepDateTime')
 
   const { lastInsertRowid } = useDatabase()
     .prepare(
@@ -15,7 +19,7 @@ export default defineEventHandler(async (event) => {
          submitted_to_unemployment, status_changed_at
        ) VALUES (
          @userId, @company, @role, @description, @jobPostingLink, @contact,
-         @applyDate, @statusId, @nextStepId, @nextStepDateTime, @notes,
+         @applyDate, @statusId, ${nextStep.id}, ${nextStep.dateTime}, @notes,
          @submittedToUnemployment, @statusChangedAt
        )`,
     )

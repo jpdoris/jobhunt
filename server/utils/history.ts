@@ -1,4 +1,5 @@
 import { useDatabase } from '../database'
+import { closedNextStepSql } from './applications'
 import type { StatusEvent } from '#shared/types'
 
 /**
@@ -60,8 +61,18 @@ export function syncCurrentStatus(applicationId: number): void {
     return
   }
 
+  // An edit can land the application on a terminal status, which closes out its
+  // next step exactly as an ordinary status change would. The fallback is the
+  // row's own values, so an edit that reopens an application leaves the next
+  // step at "None" — nothing records what it was before it closed.
+  const nextStep = closedNextStepSql('next_step_id', 'next_step_date_time')
+
   db.prepare(
-    'UPDATE application SET status_changed_at = @changedAt, status_id = @statusId WHERE id = @id',
+    `UPDATE application
+        SET status_changed_at = @changedAt, status_id = @statusId,
+            next_step_id = ${nextStep.id},
+            next_step_date_time = ${nextStep.dateTime}
+      WHERE id = @id`,
   ).run({ id: applicationId, ...latest })
 }
 

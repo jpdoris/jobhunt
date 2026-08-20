@@ -57,7 +57,13 @@ CREATE TABLE next_step (
   id         INTEGER PRIMARY KEY,
   label      TEXT NOT NULL UNIQUE,
   sort_order INTEGER NOT NULL,
-  is_active  INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1))
+  is_active  INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
+  -- Added by migration 0007, hence last: ALTER TABLE ADD COLUMN appends.
+  -- The "nothing pending" option. An application that reaches a terminal status
+  -- is moved to it automatically and has its next_step_date_time cleared, so
+  -- nothing closed keeps a phantom event on the calendar. A flag rather than a
+  -- match on the label 'None', which the owner may change (CLAUDE.md rule 3).
+  is_none    INTEGER NOT NULL DEFAULT 0 CHECK (is_none IN (0, 1))
 );
 
 -- ---------------------------------------------------------------------------
@@ -83,6 +89,8 @@ CREATE TABLE application (
   --
   -- UTC instant, 'YYYY-MM-DD HH:MM:SS' — NOT a floating date like apply_date.
   -- An interview is a moment in time, so it converts to the viewer's zone.
+  -- Cleared when the status turns terminal, along with next_step_id — see
+  -- next_step.is_none.
   -- GLOB alone would pass hour 25, so the hour is range-checked separately.
   next_step_date_time TEXT CHECK (
     next_step_date_time IS NULL OR (
@@ -297,12 +305,12 @@ INSERT INTO document_kind (label, sort_order) VALUES
   ('Resume',       10),
   ('Cover letter', 20);
 
-INSERT INTO next_step (label, sort_order) VALUES
-  ('Awaiting response',  10),
-  ('Follow up',          20),
-  ('Screener call',      30),
-  ('Interview round 1',  40),
-  ('Interview round 2',  50),
-  ('Interview round 3',  60),
-  ('Interview round 4',  70),
-  ('None',               80);
+INSERT INTO next_step (label, sort_order, is_none) VALUES
+  ('Awaiting response',  10, 0),
+  ('Follow up',          20, 0),
+  ('Screener call',      30, 0),
+  ('Interview round 1',  40, 0),
+  ('Interview round 2',  50, 0),
+  ('Interview round 3',  60, 0),
+  ('Interview round 4',  70, 0),
+  ('None',               80, 1);

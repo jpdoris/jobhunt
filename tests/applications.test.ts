@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import Database from 'better-sqlite3'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { MILESTONE_SQL } from '../server/utils/applications'
+import { MILESTONE_SQL, closedNextStepSql } from '../server/utils/applications'
 import { MILESTONES } from '../shared/types'
 import type { Milestone } from '../shared/types'
 
@@ -21,8 +21,11 @@ let statusInterviewed: number
 let statusRejected: number
 let statusOffer: number
 let statusDeclined: number
+let statusAccepted: number
 let statusExpired: number
 let nextAwaiting: number
+let nextScreener: number
+let nextNone: number
 
 beforeAll(() => {
   db = new Database(':memory:')
@@ -46,12 +49,13 @@ beforeAll(() => {
   statusRejected = id('Rejected')
   statusOffer = id('Offer received')
   statusDeclined = id('Offer declined')
+  statusAccepted = id('Offer accepted')
   statusExpired = id('Expired / Not pursued')
-  nextAwaiting = (
-    db.prepare('SELECT id FROM next_step WHERE label = ?').get('Awaiting response') as {
-      id: number
-    }
-  ).id
+  const nextId = (label: string) =>
+    (db.prepare('SELECT id FROM next_step WHERE label = ?').get(label) as { id: number }).id
+  nextAwaiting = nextId('Awaiting response')
+  nextScreener = nextId('Screener call')
+  nextNone = nextId('None')
 })
 
 afterAll(() => db.close())
@@ -421,5 +425,122 @@ describe('milestone predicates', () => {
         false,
       )
     })
+  })
+})
+
+/**
+ * Closing an application closes out its next step. Run against the real
+ * fragments from closedNextStepSql rather than copies of them — the create
+ * endpoint, the edit endpoint and the history re-sync all share one definition,
+ * and a divergent copy here would pass while the app disagreed with itself.
+ */
+describe('terminal statuses close out the next step', () => {
+  const input = closedNextStepSql('@nextStepId', '@nextStepDateTime')
+  const current = closedNextStepSql('next_step_id', 'next_step_date_time')
+
+  /** What the create endpoint does. */
+  const create = (company: string, statusId: number, nextStepId: number, when: string | null) =>
+    Number(
+      db
+        .prepare(
+          `INSERT INTO application (user_id, company, status_id, next_step_id, next_step_date_time)
+           VALUES (@userId, @company, @statusId, ${input.id}, ${input.dateTime})`,
+        )
+        .run({ userId: ownerId, company, statusId, nextStepId, nextStepDateTime: when })
+        .lastInsertRowid,
+    )
+
+  /** What the edit endpoint does. */
+  const edit = (id: number, statusId: number, nextStepId: number, when: string | null) =>
+    db
+      .prepare(
+        `UPDATE application
+            SET status_id = @statusId,
+                next_step_id = ${input.id},
+                next_step_date_time = ${input.dateTime}
+          WHERE id = @id`,
+      )
+      .run({ id, statusId, nextStepId, nextStepDateTime: when })
+
+  /** What syncCurrentStatus() does after a history edit. */
+  const resync = (id: number, statusId: number) =>
+    db
+      .prepare(
+        `UPDATE application
+            SET status_id = @statusId,
+                next_step_id = ${current.id},
+                next_step_date_time = ${current.dateTime}
+          WHERE id = @id`,
+      )
+      .run({ id, statusId })
+
+  const read = (id: number) =>
+    db
+      .prepare(
+        `SELECT n.label AS nextStep, a.next_step_date_time AS whenAt
+           FROM application a JOIN next_step n ON n.id = a.next_step_id
+          WHERE a.id = ?`,
+      )
+      .get(id) as { nextStep: string; whenAt: string | null }
+
+  it('flags exactly one next step as "nothing pending"', () => {
+    const flagged = db.prepare('SELECT label FROM next_step WHERE is_none = 1').all() as {
+      label: string
+    }[]
+    expect(flagged.map((r) => r.label)).toEqual(['None'])
+  })
+
+  it('leaves a live application alone', () => {
+    const id = create('Live Next Co', statusInterview, nextScreener, '2026-09-01 15:00:00')
+    expect(read(id)).toEqual({ nextStep: 'Screener call', whenAt: '2026-09-01 15:00:00' })
+  })
+
+  it.each([
+    ['Rejected', () => statusRejected],
+    ['Offer declined', () => statusDeclined],
+    ['Expired / Not pursued', () => statusExpired],
+  ])('closes out on edit to %s', (label, status) => {
+    const id = create(`Closes ${label} Co`, statusApplied, nextScreener, '2026-09-01 15:00:00')
+    edit(id, status(), nextScreener, '2026-09-01 15:00:00')
+    expect(read(id)).toEqual({ nextStep: 'None', whenAt: null })
+  })
+
+  // Offer accepted is terminal but positive — the rule is is_terminal, not tone.
+  it('closes out on a terminal status that is not a rejection', () => {
+    const id = create('Accepted Co', statusApplied, nextScreener, '2026-09-01 15:00:00')
+    edit(id, statusAccepted, nextScreener, '2026-09-01 15:00:00')
+    expect(read(id)).toEqual({ nextStep: 'None', whenAt: null })
+  })
+
+  // Offer received is deliberately non-terminal: still in play, still has steps.
+  it('does not close out at Offer received', () => {
+    const id = create('Deciding Next Co', statusApplied, nextScreener, '2026-09-01 15:00:00')
+    edit(id, statusOffer, nextScreener, '2026-09-01 15:00:00')
+    expect(read(id)).toEqual({ nextStep: 'Screener call', whenAt: '2026-09-01 15:00:00' })
+  })
+
+  it('closes out an application filed as already closed', () => {
+    const id = create('Logged Late Co', statusRejected, nextScreener, '2026-09-01 15:00:00')
+    expect(read(id)).toEqual({ nextStep: 'None', whenAt: null })
+  })
+
+  it('closes out when a history edit lands on a terminal status', () => {
+    const id = create('Resync Co', statusApplied, nextScreener, '2026-09-01 15:00:00')
+    resync(id, statusRejected)
+    expect(read(id)).toEqual({ nextStep: 'None', whenAt: null })
+  })
+
+  it('keeps the current next step when a history edit lands somewhere live', () => {
+    const id = create('Resync Live Co', statusApplied, nextScreener, '2026-09-01 15:00:00')
+    resync(id, statusInterviewed)
+    expect(read(id)).toEqual({ nextStep: 'Screener call', whenAt: '2026-09-01 15:00:00' })
+  })
+
+  // Nothing records what the next step was before it closed, so reopening
+  // cannot restore one — the user picks it again.
+  it('does not restore a next step when the application reopens', () => {
+    const id = create('Reopened Co', statusRejected, nextScreener, null)
+    edit(id, statusApplied, nextNone, null)
+    expect(read(id)).toEqual({ nextStep: 'None', whenAt: null })
   })
 })
