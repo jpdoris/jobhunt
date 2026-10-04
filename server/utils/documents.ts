@@ -1,6 +1,9 @@
-import { mkdirSync, rmSync } from 'node:fs'
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { resolve, sep } from 'node:path'
-import { useDatabase } from '../database'
+// Explicit .ts paths: scripts/add-application.ts imports this under plain Node.
+import { useDatabase } from '../database/index.ts'
+import { ACCEPTED_MIME } from './extract-text.ts'
+import type { AcceptedMime } from './extract-text.ts'
 import type { DocumentKind, DocumentRecord } from '#shared/types'
 
 /**
@@ -103,6 +106,26 @@ export function createDocument(input: {
     )
     .run(input)
   return Number(lastInsertRowid)
+}
+
+/**
+ * Writes an uploaded file for an existing document row and records its path.
+ *
+ * Named from the row id, never from the uploaded filename — a user-supplied
+ * name is the classic path-traversal vector, and ids are already unique.
+ */
+export function saveDocumentFile(
+  userId: number,
+  id: number,
+  data: Buffer,
+  mimeType: AcceptedMime,
+): string {
+  const filePath = `${id}${ACCEPTED_MIME[mimeType]}`
+  writeFileSync(resolve(documentsDir(), filePath), data)
+  useDatabase()
+    .prepare('UPDATE document SET file_path = ? WHERE id = ? AND user_id = ?')
+    .run(filePath, id, userId)
+  return filePath
 }
 
 export function updateDocument(

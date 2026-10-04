@@ -101,7 +101,7 @@ function exportCsv() {
   const header = [
     'id', 'company', 'role', 'status', 'next_step', 'next_step_date_time',
     'apply_date', 'job_posting_link', 'contact', 'submitted_to_unemployment',
-    'description', 'notes',
+    'angle', 'description', 'notes',
   ]
   const escape = (v: unknown) => {
     const s = v === null || v === undefined ? '' : String(v)
@@ -116,7 +116,7 @@ function exportCsv() {
       [
         a.id, a.company, a.role, a.statusLabel, a.nextStepLabel, a.nextStepDateTime,
         a.applyDate, a.jobPostingLink, a.contact, a.submittedToUnemployment ? 1 : 0,
-        a.description, a.notes,
+        a.angle, a.description, a.notes,
       ]
         .map(escape)
         .join(','),

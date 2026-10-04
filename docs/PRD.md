@@ -31,6 +31,11 @@ These are explicitly out of scope. Revisit only by editing this section.
   parsers that break on every redesign. Descriptions are pasted by hand.
 - **Resume or cover-letter _generation_ or tailoring.** Storage is in scope
   (see [Documents](#documents)); writing the content is not.
+
+Both of those bind **the app**. Work done outside it — a Claude session reading a
+posting and drafting a résumé with the `/resume-and-cover-letter` skill — may hand
+its finished result in through `npm run app:add`, which only validates and stores
+it. The app itself never fetches a link, calls a model, or writes document content.
 - **Email integration of any kind.** No Gmail scanning, no parsing rejection emails,
   no inferring status from a mailbox. Status changes are entered by hand.
 - **Two-way calendar sync.** Adding an interview to Google Calendar is in scope, but

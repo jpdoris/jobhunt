@@ -72,6 +72,8 @@ export interface Application {
   /** When the current status began; null if the timeline is empty. */
   statusChangedAt: string | null
   notes: string | null
+  /** Which version of the pitch went out, e.g. "Senior Vue frontend". */
+  angle: string | null
   submittedToUnemployment: boolean
   createdAt: string
   updatedAt: string

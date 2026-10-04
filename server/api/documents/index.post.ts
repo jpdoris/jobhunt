@@ -1,9 +1,6 @@
-import { writeFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { MAX_UPLOAD_BYTES } from '#shared/types'
-import { useDatabase } from '../../database'
-import { createDocument, documentsDir, getDocument } from '../../utils/documents'
-import { ACCEPTED_MIME, extractText, isAcceptedMime } from '../../utils/extract-text'
+import { createDocument, getDocument, saveDocumentFile } from '../../utils/documents'
+import { extractText, isAcceptedMime } from '../../utils/extract-text'
 import { requireUserId } from '../../utils/session'
 
 /**
@@ -28,7 +25,6 @@ export default defineEventHandler(async (event) => {
   const pastedText = field('contentText') || ''
   let title = field('title') || ''
 
-  let filePath: string | null = null
   let mimeType: string | null = null
   let byteSize: number | null = null
   let contentText = pastedText
@@ -78,12 +74,9 @@ export default defineEventHandler(async (event) => {
     contentText: contentText || null,
   })
 
-  if (file) {
-    // Named from the row id, never from the uploaded filename — a user-supplied
-    // name is the classic path-traversal vector, and ids are already unique.
-    filePath = `${id}${ACCEPTED_MIME[mimeType as keyof typeof ACCEPTED_MIME]}`
-    writeFileSync(resolve(documentsDir(), filePath), file.data)
-    useDatabase().prepare('UPDATE document SET file_path = ? WHERE id = ?').run(filePath, id)
+  // Re-checked only to narrow the type; an unaccepted file threw above.
+  if (file && mimeType && isAcceptedMime(mimeType)) {
+    saveDocumentFile(userId, id, file.data, mimeType)
   }
 
   setResponseStatus(event, 201)

@@ -114,6 +114,10 @@ async function remove() {
           <div>{{ formatApplyDate(application.applyDate) }}</div>
         </div>
         <div>
+          <div class="detail-meta__label">Angle</div>
+          <div>{{ application.angle ?? '—' }}</div>
+        </div>
+        <div>
           <div class="detail-meta__label">Filed with unemployment</div>
           <div>{{ application.submittedToUnemployment ? 'Yes' : 'No' }}</div>
         </div>

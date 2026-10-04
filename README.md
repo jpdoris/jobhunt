@@ -89,6 +89,7 @@ there. The import is idempotent: running it twice leaves one copy, not two.
 | `npm run db:status` | List applied / pending migrations |
 | `npm run db:reset` | **Destructive** — drop everything and re-apply |
 | `npm run db:seed <email>` | Load `data/seed-applications.csv` for that account |
+| `npm run app:add <email>` | Create one application from JSON on stdin, attaching any files it lists (`-- --dry-run` to preview) |
 | `npm run user:create <email>` | Create an account; refuses if it already exists |
 | `npm run user:reset <email>` | Reset a password; confirms first |
 | `npm run seed:clean` | Regenerate the canonical seed CSV from the raw export |

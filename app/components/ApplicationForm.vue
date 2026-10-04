@@ -36,6 +36,7 @@ const form = reactive({
   submittedToUnemployment: props.application?.submittedToUnemployment ?? false,
   description: props.application?.description ?? '',
   notes: props.application?.notes ?? '',
+  angle: props.application?.angle ?? '',
 })
 
 /* Closing an application closes out its next step ------------------------- */
@@ -85,6 +86,7 @@ async function save() {
       submittedToUnemployment: form.submittedToUnemployment,
       description: form.description,
       notes: form.notes,
+      angle: form.angle,
     }
     if (editing.value) {
       await $fetch(`/api/applications/${props.application!.id}`, { method: 'PUT', body })
@@ -165,6 +167,11 @@ async function save() {
           This status closes the application, so its next step is
           {{ noneStep?.label ?? 'cleared' }} and any date is dropped.
         </p>
+
+        <div class="field form-grid__wide">
+          <label for="angle">Angle</label>
+          <input id="angle" v-model="form.angle" class="input" placeholder="e.g. Senior Vue frontend" />
+        </div>
 
         <div class="field form-grid__wide">
           <label for="jobPostingLink">Job posting link</label>

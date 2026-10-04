@@ -12,6 +12,7 @@
     "test:watch": "vitest",
     "db:migrate": "node --experimental-strip-types scripts/db-migrate.ts",
     "db:seed": "node --experimental-strip-types scripts/db-seed.ts",
+    "app:add": "node --experimental-strip-types scripts/add-application.ts",
     "user:create": "node --experimental-strip-types scripts/create-user.ts",
     "seed:clean": "python3 scripts/clean-seed-data.py",
     "user:reset": "node --experimental-strip-types scripts/create-user.ts --reset",

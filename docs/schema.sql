@@ -116,7 +116,11 @@ CREATE TABLE application (
       status_changed_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-2][0-9]:[0-5][0-9]:[0-5][0-9]'
       AND CAST(substr(status_changed_at, 12, 2) AS INTEGER) < 24
     )
-  )
+  ),
+
+  -- Added by migration 0008, hence last. Which version of the owner's story
+  -- went out ("Senior Vue frontend"). Free text, not a vocabulary.
+  angle            TEXT
 );
 
 CREATE INDEX application_user_idx           ON application(user_id);
@@ -138,7 +142,7 @@ END;
 -- ---------------------------------------------------------------------------
 
 CREATE VIRTUAL TABLE application_fts USING fts5(
-  company, role, description, notes,
+  company, role, description, notes, angle,
   content = 'application',
   content_rowid = 'id',
   tokenize = 'porter unicode61'
@@ -146,22 +150,22 @@ CREATE VIRTUAL TABLE application_fts USING fts5(
 
 CREATE TRIGGER application_fts_insert AFTER INSERT ON application
 BEGIN
-  INSERT INTO application_fts(rowid, company, role, description, notes)
-  VALUES (NEW.id, NEW.company, NEW.role, NEW.description, NEW.notes);
+  INSERT INTO application_fts(rowid, company, role, description, notes, angle)
+  VALUES (NEW.id, NEW.company, NEW.role, NEW.description, NEW.notes, NEW.angle);
 END;
 
 CREATE TRIGGER application_fts_delete AFTER DELETE ON application
 BEGIN
-  INSERT INTO application_fts(application_fts, rowid, company, role, description, notes)
-  VALUES ('delete', OLD.id, OLD.company, OLD.role, OLD.description, OLD.notes);
+  INSERT INTO application_fts(application_fts, rowid, company, role, description, notes, angle)
+  VALUES ('delete', OLD.id, OLD.company, OLD.role, OLD.description, OLD.notes, OLD.angle);
 END;
 
 CREATE TRIGGER application_fts_update AFTER UPDATE ON application
 BEGIN
-  INSERT INTO application_fts(application_fts, rowid, company, role, description, notes)
-  VALUES ('delete', OLD.id, OLD.company, OLD.role, OLD.description, OLD.notes);
-  INSERT INTO application_fts(rowid, company, role, description, notes)
-  VALUES (NEW.id, NEW.company, NEW.role, NEW.description, NEW.notes);
+  INSERT INTO application_fts(application_fts, rowid, company, role, description, notes, angle)
+  VALUES ('delete', OLD.id, OLD.company, OLD.role, OLD.description, OLD.notes, OLD.angle);
+  INSERT INTO application_fts(rowid, company, role, description, notes, angle)
+  VALUES (NEW.id, NEW.company, NEW.role, NEW.description, NEW.notes, NEW.angle);
 END;
 
 -- ---------------------------------------------------------------------------

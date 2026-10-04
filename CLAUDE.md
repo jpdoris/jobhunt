@@ -66,7 +66,8 @@ Violating any of these is a bug, not a style preference.
    `next_step_date_time` — closed means nothing is pending, and a rejected
    application must not keep a phantom interview on the calendar. The rule is
    `closedNextStepSql` in `server/utils/applications.ts`, one definition shared
-   by the create endpoint, the edit endpoint, and `syncCurrentStatus`. Any new
+   by `createApplication` (the create endpoint and `app:add`), the edit
+   endpoint, and `syncCurrentStatus`. Any new
    write path that sets `status_id` uses it too. Reopening does not restore the
    old next step — nothing records what it was.
 
@@ -100,8 +101,8 @@ shared/types.ts           types + statusTagClass; shared/calendar.ts — ics/Goo
 migrations/               numbered SQL — what actually runs against a database
 docs/schema.sql           readable snapshot of the current schema
 docs/PRD.md               requirements, decisions, non-goals
-scripts/                  db-migrate, db-seed, create-user, clean-seed-data,
-                          make-favicon, tag-preview
+scripts/                  db-migrate, db-seed, create-user, add-application,
+                          clean-seed-data, make-favicon, tag-preview
 data/jobhunt-project--seed-data.csv   raw export — source of record, never edit
 data/seed-applications.csv            canonical rows — GENERATED, never edit
 data/jobhunt.db                       SQLite database — gitignored
@@ -118,6 +119,7 @@ npm run db:migrate          # apply pending migrations/
 npm run db:status           # list applied / pending, change nothing
 npm run db:reset            # DESTRUCTIVE: drop everything, re-apply from scratch
 npm run db:seed you@example.com    # load the 291 seed rows for that account
+npm run app:add you@example.com < posting.json   # create one application (+ documents)
 npm run user:create you@example.com     # create; refuses if the email exists
 npm run user:reset  you@example.com     # reset a password; confirms first
 npm run seed:clean          # regenerate data/seed-applications.csv from the raw export
@@ -125,7 +127,15 @@ npm run seed:clean          # regenerate data/seed-applications.csv from the raw
 
 Scripts under `scripts/` run via `node --experimental-strip-types`, so their
 relative imports need explicit `.ts` extensions — Node's ESM resolver does not
-guess them, and directory imports fail outright.
+guess them, and directory imports fail outright. The same goes for any server
+module a script imports (`applications.ts`, `documents.ts`, `extract-text.ts`,
+`validation.ts`): those use `.ts` paths and no `#shared` alias for value imports.
+
+**`app:add` is how anything outside the browser creates an application** — chiefly
+the `/resume-and-cover-letter` skill. It takes JSON (format in the script's header),
+resolves status / next-step / document-kind labels against the database, calls
+`createApplication`, and attaches files. Use `-- --dry-run` to preview. It never
+fetches anything; Claude does the reading, the app only stores.
 
 **npm's `--` separator is required for `--flags` but not for positional args.**
 Without it npm 12 rejects unknown flags outright (`EUNKNOWNCONFIG`) rather than
@@ -252,6 +262,7 @@ neighbouring feature is in scope, so read the boundary rather than the headline:
 | One-way "add to Google Calendar" link | OAuth, token storage, two-way sync, reading the calendar |
 | Analytics from `status_event`         | Any inference of status from email                       |
 | Pasting a job description by hand     | Fetching `job_posting_link` to fill `description`        |
+| Storing what Claude drafted, via `app:add` | The app fetching postings or calling a model itself |
 
 Also out entirely: sharing or collaboration between users, native mobile app, PWA.
 

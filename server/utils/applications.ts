@@ -1,5 +1,10 @@
-import { useDatabase } from '../database'
-import { DEFAULT_SORT } from '#shared/types'
+// Explicit .ts paths and no #shared alias for value imports: scripts/add-application.ts
+// imports this module under plain Node, which neither guesses extensions nor
+// knows Nuxt's aliases. Type-only imports are erased, so those may keep it.
+import { useDatabase } from '../database/index.ts'
+import type { DB } from '../database/index.ts'
+import type { ApplicationInput } from './validation.ts'
+import { DEFAULT_SORT } from '../../shared/types.ts'
 import type {
   Application,
   ApplicationFilters,
@@ -118,6 +123,46 @@ export function closedNextStepSql(
   }
 }
 
+/**
+ * Inserts one application for `userId` and returns its id. The one write path
+ * for new applications — the create endpoint and scripts/add-application.ts
+ * both call it, so closing out the next step (closedNextStepSql) and the
+ * user_id stamp cannot differ between them.
+ *
+ * `input` must already be validated (ApplicationInput). Ownership is the
+ * caller's: userId comes from the session or from a looked-up email, never
+ * from the request body.
+ */
+export function createApplication(
+  userId: number,
+  input: ApplicationInput,
+  db: DB = useDatabase(),
+): number {
+  // Filed as already closed — a rejection logged after the fact — still has no
+  // next step, so the same rule applies here as on the way to a terminal status.
+  const nextStep = closedNextStepSql('@nextStepId', '@nextStepDateTime')
+
+  const { lastInsertRowid } = db
+    .prepare(
+      `INSERT INTO application (
+         user_id, company, role, description, job_posting_link, contact,
+         apply_date, status_id, next_step_id, next_step_date_time, notes, angle,
+         submitted_to_unemployment, status_changed_at
+       ) VALUES (
+         @userId, @company, @role, @description, @jobPostingLink, @contact,
+         @applyDate, @statusId, ${nextStep.id}, ${nextStep.dateTime}, @notes, @angle,
+         @submittedToUnemployment, @statusChangedAt
+       )`,
+    )
+    .run({
+      userId,
+      ...input,
+      statusChangedAt: input.statusChangedAt ?? null,
+      submittedToUnemployment: Number(input.submittedToUnemployment),
+    })
+  return Number(lastInsertRowid)
+}
+
 const SELECT = `
   SELECT
     a.id, a.company, a.role, a.description,
@@ -127,7 +172,7 @@ const SELECT = `
     a.next_step_id AS nextStepId, n.label AS nextStepLabel,
     a.next_step_date_time AS nextStepDateTime,
     a.status_changed_at AS statusChangedAt,
-    a.notes, a.submitted_to_unemployment AS submittedToUnemployment,
+    a.notes, a.angle, a.submitted_to_unemployment AS submittedToUnemployment,
     a.created_at AS createdAt, a.updated_at AS updatedAt
   FROM application a
   JOIN status s ON s.id = a.status_id
