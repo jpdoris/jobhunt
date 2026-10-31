@@ -58,7 +58,8 @@ export async function extractText(buffer: Buffer, mime: string): Promise<Extract
 async function extractByType(buffer: Buffer, mime: string): Promise<string> {
   if (mime === 'application/pdf') {
     const { extractText: pdfText, getDocumentProxy } = await import('unpdf')
-    const pdf = await getDocumentProxy(new Uint8Array(buffer))
+    // Errors only: pdf.js warns about font internals that text extraction never uses.
+    const pdf = await getDocumentProxy(new Uint8Array(buffer), { verbosity: 0 })
     const { text } = await pdfText(pdf, { mergePages: true })
     return Array.isArray(text) ? text.join('\n') : text
   }
