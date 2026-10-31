@@ -28,7 +28,8 @@ export default defineEventHandler(async (event) => {
          status_changed_at = @statusChangedAt, status_id = @statusId,
          next_step_id = ${nextStep.id},
          next_step_date_time = ${nextStep.dateTime},
-         notes = @notes, angle = @angle, submitted_to_unemployment = @submittedToUnemployment
+         notes = @notes, angle = @angle, job_req_id = @jobReqId,
+         submitted_to_unemployment = @submittedToUnemployment
        WHERE id = @id AND user_id = @userId`,
     )
     .run({

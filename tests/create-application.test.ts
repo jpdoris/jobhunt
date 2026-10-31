@@ -14,7 +14,7 @@ const { useDatabase, closeDatabase } = await import('../server/database/index.ts
 const { createApplication, getApplication, listApplications } = await import(
   '../server/utils/applications.ts'
 )
-const { attachDocument, createDocument, documentsForApplication } = await import(
+const { attachDocument, createDocument, documentsForApplication, listDocuments } = await import(
   '../server/utils/documents.ts'
 )
 const { ApplicationInput } = await import('../server/utils/validation.ts')
@@ -74,6 +74,18 @@ describe('createApplication', () => {
     expect(getApplication(ownerId, id)?.angle).toBeNull()
   })
 
+  it('stores the req id and makes it searchable, for its owner only', () => {
+    const id = createApplication(ownerId, input({ jobReqId: ' R-2242 ' }))
+    expect(getApplication(ownerId, id)?.jobReqId).toBe('R-2242')
+    expect(listApplications(ownerId, { search: '2242' }).map((a) => a.id)).toContain(id)
+    expect(listApplications(otherId, { search: '2242' })).toEqual([])
+  })
+
+  it('treats a blank req id as null', () => {
+    const id = createApplication(ownerId, input({ jobReqId: '' }))
+    expect(getApplication(ownerId, id)?.jobReqId).toBeNull()
+  })
+
   it('closes out the next step when filed as already terminal', () => {
     const id = createApplication(
       ownerId,
@@ -90,6 +102,31 @@ describe('createApplication', () => {
       .prepare('SELECT count(*) AS n FROM status_event WHERE application_id = ?')
       .get(id) as { n: number }
     expect(n.n).toBe(1)
+  })
+})
+
+describe('prefix search', () => {
+  // Porter stemmed the typed prefix ("compsy" -> "compsi"), so a half-typed
+  // name stopped matching partway through. Every prefix must match.
+  it('matches every prefix of a company name as typed', () => {
+    const id = createApplication(ownerId, input({ company: 'ComPsych' }))
+    for (const typed of ['comp', 'comps', 'compsy', 'compsyc', 'ComPsych']) {
+      expect(listApplications(ownerId, { search: typed }).map((a) => a.id), typed).toContain(id)
+    }
+  })
+
+  it('matches a half-typed word in a document title', () => {
+    const docId = createDocument({
+      userId: ownerId,
+      kindId: resume,
+      title: 'ComPsych résumé',
+      filePath: null,
+      mimeType: 'text/plain',
+      byteSize: 1,
+      contentText: 'x',
+    })
+    expect(listDocuments(ownerId, { search: 'compsy' }).map((d) => d.id)).toContain(docId)
+    expect(listDocuments(otherId, { search: 'compsy' })).toEqual([])
   })
 })
 

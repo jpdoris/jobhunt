@@ -91,7 +91,7 @@ times are therefore sometimes approximate; don't build logic that assumes precis
 ```
 app/assets/css/           tokens.css -> base.css -> components.css (that order)
 app/pages/                login, index, applications/[id], documents, calendar
-app/components/           AppNav, ApplicationForm, AppIcon
+app/components/           AppNav, ApplicationForm, AppIcon, SearchInput
 app/composables/          useFormat.ts — date/instant rendering
 server/api/               REST endpoints (all user-scoped)
 server/database/index.ts  shared better-sqlite3 connection

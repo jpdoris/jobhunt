@@ -80,8 +80,18 @@ const search = ref((route.query.search as string) ?? '')
 let searchTimer: ReturnType<typeof setTimeout> | undefined
 watch(search, (v) => {
   clearTimeout(searchTimer)
+  // Already in the URL — this change came from it, below.
+  if (v === (route.query.search ?? '')) return
   searchTimer = setTimeout(() => setQuery({ search: v || undefined }), 250)
 })
+// The URL is the source of truth: Clear filters and back/forward change it
+// without touching the box, which would otherwise keep showing stale text.
+watch(
+  () => route.query.search,
+  (v) => {
+    search.value = (v as string) ?? ''
+  },
+)
 onBeforeUnmount(() => clearTimeout(searchTimer))
 
 const hasFilters = computed(() => Object.keys(route.query).length > 0)
@@ -100,7 +110,7 @@ function exportCsv() {
   // text goes last, so the scannable columns stay to the left in a spreadsheet.
   const header = [
     'id', 'company', 'role', 'status', 'next_step', 'next_step_date_time',
-    'apply_date', 'job_posting_link', 'contact', 'submitted_to_unemployment',
+    'apply_date', 'job_posting_link', 'job_req_id', 'contact', 'submitted_to_unemployment',
     'angle', 'description', 'notes',
   ]
   const escape = (v: unknown) => {
@@ -115,7 +125,7 @@ function exportCsv() {
     ...applications.value.map((a) =>
       [
         a.id, a.company, a.role, a.statusLabel, a.nextStepLabel, a.nextStepDateTime,
-        a.applyDate, a.jobPostingLink, a.contact, a.submittedToUnemployment ? 1 : 0,
+        a.applyDate, a.jobPostingLink, a.jobReqId, a.contact, a.submittedToUnemployment ? 1 : 0,
         a.angle, a.description, a.notes,
       ]
         .map(escape)
@@ -212,15 +222,7 @@ async function onSaved() {
       <div class="filter-bar">
         <div class="field field--grow">
           <label for="search">Search</label>
-          <div class="input-icon">
-            <span class="input-icon__glyph"><AppIcon name="search" /></span>
-            <input
-              id="search"
-              v-model="search"
-              class="input"
-              placeholder="Company, role, description…"
-            />
-          </div>
+          <SearchInput id="search" v-model="search" placeholder="Company, role, req ID, description…" />
         </div>
 
         <div class="field field--md">
@@ -462,23 +464,6 @@ async function onSaved() {
 
 .field--inline {
   padding-bottom: var(--baseline-nudge);
-}
-
-.input-icon {
-  position: relative;
-}
-
-.input-icon__glyph {
-  position: absolute;
-  left: 9px;
-  top: 50%;
-  transform: translateY(-50%);
-  opacity: 0.55;
-  pointer-events: none;
-}
-
-.input-icon .input {
-  padding-left: 30px;
 }
 
 .cell--wrap {

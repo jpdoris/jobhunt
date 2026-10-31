@@ -68,8 +68,18 @@ const search = ref((route.query.search as string) ?? '')
 let timer: ReturnType<typeof setTimeout> | undefined
 watch(search, (v) => {
   clearTimeout(timer)
+  // Already in the URL — this change came from it, below.
+  if (v === (route.query.search ?? '')) return
   timer = setTimeout(() => setQuery({ search: v || undefined }), 250)
 })
+// The URL is the source of truth: Clear and back/forward change it without
+// touching the box, which would otherwise keep showing stale text.
+watch(
+  () => route.query.search,
+  (v) => {
+    search.value = (v as string) ?? ''
+  },
+)
 onBeforeUnmount(() => clearTimeout(timer))
 
 /* Upload ------------------------------------------------------------------ */
@@ -188,10 +198,7 @@ async function remove(doc: DocumentRecord) {
       <div class="filter-bar">
         <div class="field field--grow">
           <label for="doc-search">Search</label>
-          <div class="input-icon">
-            <span class="input-icon__glyph"><AppIcon name="search" /></span>
-            <input id="doc-search" v-model="search" class="input" placeholder="Title or contents…" />
-          </div>
+          <SearchInput id="doc-search" v-model="search" placeholder="Title or contents…" />
         </div>
         <div class="field field--md">
           <label for="doc-kind">Kind</label>

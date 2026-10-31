@@ -74,6 +74,8 @@ export interface Application {
   notes: string | null
   /** Which version of the pitch went out, e.g. "Senior Vue frontend". */
   angle: string | null
+  /** The employer's own id for the posting, e.g. "1693". */
+  jobReqId: string | null
   submittedToUnemployment: boolean
   createdAt: string
   updatedAt: string

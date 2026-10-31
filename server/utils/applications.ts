@@ -147,11 +147,11 @@ export function createApplication(
       `INSERT INTO application (
          user_id, company, role, description, job_posting_link, contact,
          apply_date, status_id, next_step_id, next_step_date_time, notes, angle,
-         submitted_to_unemployment, status_changed_at
+         job_req_id, submitted_to_unemployment, status_changed_at
        ) VALUES (
          @userId, @company, @role, @description, @jobPostingLink, @contact,
          @applyDate, @statusId, ${nextStep.id}, ${nextStep.dateTime}, @notes, @angle,
-         @submittedToUnemployment, @statusChangedAt
+         @jobReqId, @submittedToUnemployment, @statusChangedAt
        )`,
     )
     .run({
@@ -172,7 +172,8 @@ const SELECT = `
     a.next_step_id AS nextStepId, n.label AS nextStepLabel,
     a.next_step_date_time AS nextStepDateTime,
     a.status_changed_at AS statusChangedAt,
-    a.notes, a.angle, a.submitted_to_unemployment AS submittedToUnemployment,
+    a.notes, a.angle, a.job_req_id AS jobReqId,
+    a.submitted_to_unemployment AS submittedToUnemployment,
     a.created_at AS createdAt, a.updated_at AS updatedAt
   FROM application a
   JOIN status s ON s.id = a.status_id

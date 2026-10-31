@@ -118,6 +118,10 @@ async function remove() {
           <div>{{ application.angle ?? '—' }}</div>
         </div>
         <div>
+          <div class="detail-meta__label">Req ID</div>
+          <div>{{ application.jobReqId ?? '—' }}</div>
+        </div>
+        <div>
           <div class="detail-meta__label">Filed with unemployment</div>
           <div>{{ application.submittedToUnemployment ? 'Yes' : 'No' }}</div>
         </div>

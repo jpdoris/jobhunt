@@ -37,6 +37,7 @@ const form = reactive({
   description: props.application?.description ?? '',
   notes: props.application?.notes ?? '',
   angle: props.application?.angle ?? '',
+  jobReqId: props.application?.jobReqId ?? '',
 })
 
 /* Closing an application closes out its next step ------------------------- */
@@ -87,6 +88,7 @@ async function save() {
       description: form.description,
       notes: form.notes,
       angle: form.angle,
+      jobReqId: form.jobReqId,
     }
     if (editing.value) {
       await $fetch(`/api/applications/${props.application!.id}`, { method: 'PUT', body })
@@ -179,10 +181,14 @@ async function save() {
         </div>
 
         <div class="field">
+          <label for="jobReqId">Req ID</label>
+          <input id="jobReqId" v-model="form.jobReqId" class="input" placeholder="Optional, e.g. 1693" />
+        </div>
+        <div class="field">
           <label for="contact">Recruiter email</label>
           <input id="contact" v-model="form.contact" class="input" type="email" placeholder="Optional" />
         </div>
-        <div class="field form-grid__end">
+        <div class="field form-grid__wide">
           <label class="radio">
             <input v-model="form.submittedToUnemployment" type="checkbox" />
             <span class="dot" />

@@ -120,7 +120,11 @@ CREATE TABLE application (
 
   -- Added by migration 0008, hence last. Which version of the owner's story
   -- went out ("Senior Vue frontend"). Free text, not a vocabulary.
-  angle            TEXT
+  angle            TEXT,
+
+  -- Added by migration 0009, hence last. The employer's own id for the posting
+  -- ("1693", "R-2242"). Optional free text; formats vary by ATS.
+  job_req_id       TEXT
 );
 
 CREATE INDEX application_user_idx           ON application(user_id);
@@ -139,33 +143,37 @@ END;
 --
 -- Descriptions run to ~6k characters, so LIKE '%…%' scans get expensive.
 -- Contentless FTS5 index kept in sync by triggers; query it, then join back.
+--
+-- No porter stemmer (migration 0009): search is a prefix match as you type,
+-- and porter stems the query prefix too, so "compsy" became "compsi" and
+-- missed "compsych". unicode61 matches what was typed.
 -- ---------------------------------------------------------------------------
 
 CREATE VIRTUAL TABLE application_fts USING fts5(
-  company, role, description, notes, angle,
+  company, role, job_req_id, description, notes, angle,
   content = 'application',
   content_rowid = 'id',
-  tokenize = 'porter unicode61'
+  tokenize = 'unicode61'
 );
 
 CREATE TRIGGER application_fts_insert AFTER INSERT ON application
 BEGIN
-  INSERT INTO application_fts(rowid, company, role, description, notes, angle)
-  VALUES (NEW.id, NEW.company, NEW.role, NEW.description, NEW.notes, NEW.angle);
+  INSERT INTO application_fts(rowid, company, role, job_req_id, description, notes, angle)
+  VALUES (NEW.id, NEW.company, NEW.role, NEW.job_req_id, NEW.description, NEW.notes, NEW.angle);
 END;
 
 CREATE TRIGGER application_fts_delete AFTER DELETE ON application
 BEGIN
-  INSERT INTO application_fts(application_fts, rowid, company, role, description, notes, angle)
-  VALUES ('delete', OLD.id, OLD.company, OLD.role, OLD.description, OLD.notes, OLD.angle);
+  INSERT INTO application_fts(application_fts, rowid, company, role, job_req_id, description, notes, angle)
+  VALUES ('delete', OLD.id, OLD.company, OLD.role, OLD.job_req_id, OLD.description, OLD.notes, OLD.angle);
 END;
 
 CREATE TRIGGER application_fts_update AFTER UPDATE ON application
 BEGIN
-  INSERT INTO application_fts(application_fts, rowid, company, role, description, notes, angle)
-  VALUES ('delete', OLD.id, OLD.company, OLD.role, OLD.description, OLD.notes, OLD.angle);
-  INSERT INTO application_fts(rowid, company, role, description, notes, angle)
-  VALUES (NEW.id, NEW.company, NEW.role, NEW.description, NEW.notes, NEW.angle);
+  INSERT INTO application_fts(application_fts, rowid, company, role, job_req_id, description, notes, angle)
+  VALUES ('delete', OLD.id, OLD.company, OLD.role, OLD.job_req_id, OLD.description, OLD.notes, OLD.angle);
+  INSERT INTO application_fts(rowid, company, role, job_req_id, description, notes, angle)
+  VALUES (NEW.id, NEW.company, NEW.role, NEW.job_req_id, NEW.description, NEW.notes, NEW.angle);
 END;
 
 -- ---------------------------------------------------------------------------
@@ -263,7 +271,7 @@ CREATE VIRTUAL TABLE document_fts USING fts5(
   title, content_text,
   content = 'document',
   content_rowid = 'id',
-  tokenize = 'porter unicode61'
+  tokenize = 'unicode61'   -- no porter; see application_fts
 );
 
 CREATE TRIGGER document_fts_insert AFTER INSERT ON document

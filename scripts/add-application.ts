@@ -12,7 +12,8 @@
  *
  *   {
  *     "company": "Acme", "role": "Senior Frontend Engineer",
- *     "jobPostingLink": "https://…", "description": "…", "contact": null,
+ *     "jobPostingLink": "https://…", "jobReqId": "1693",
+ *     "description": "…", "contact": null,
  *     "applyDate": "2026-10-04",           floating date, never converted
  *     "status": "Applied",                 a status label; default: first in pipeline order
  *     "nextStep": "Awaiting response",     a next-step label; default: first live option
@@ -173,6 +174,7 @@ const summary = {
   nextStepDateTime: closesOut.is_terminal ? null : input.nextStepDateTime,
   applyDate: input.applyDate,
   angle: input.angle,
+  jobReqId: input.jobReqId,
   documents: documents.map((d) => ({
     title: d.title,
     kind: d.kind.label,

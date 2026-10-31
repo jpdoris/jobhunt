@@ -20,6 +20,8 @@ export const ApplicationInput = z.object({
   notes: z.preprocess(blankToNull, z.string().nullable()),
   /** Which version of the pitch went out, e.g. "Senior Vue frontend". */
   angle: z.preprocess(blankToNull, z.string().trim().nullable()).default(null),
+  /** The employer's own id for the posting, e.g. "1693". Optional. */
+  jobReqId: z.preprocess(blankToNull, z.string().trim().nullable()).default(null),
   submittedToUnemployment: z.coerce.boolean().default(false),
   /** Optional: when this status change actually happened. Defaults to now. */
   statusChangedAt: z.preprocess(blankToNull, z.string().regex(DATETIME).nullable()).optional(),
