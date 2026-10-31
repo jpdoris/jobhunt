@@ -66,8 +66,8 @@ Violating any of these is a bug, not a style preference.
    `next_step_date_time` — closed means nothing is pending, and a rejected
    application must not keep a phantom interview on the calendar. The rule is
    `closedNextStepSql` in `server/utils/applications.ts`, one definition shared
-   by `createApplication` (the create endpoint and `app:add`), the edit
-   endpoint, and `syncCurrentStatus`. Any new
+   by `createApplication` (the create endpoint and `app:add`),
+   `updateApplication` (the edit endpoint), and `syncCurrentStatus`. Any new
    write path that sets `status_id` uses it too. Reopening does not restore the
    old next step — nothing records what it was.
 
@@ -98,6 +98,7 @@ server/database/index.ts  shared better-sqlite3 connection
 server/utils/             applications, documents, extract-text, password,
                           session, validation
 shared/types.ts           types + statusTagClass; shared/calendar.ts — ics/Google
+shared/schemas.ts         zod request schemas; Application's fields derive from these
 migrations/               numbered SQL — what actually runs against a database
 docs/schema.sql           readable snapshot of the current schema
 docs/PRD.md               requirements, decisions, non-goals

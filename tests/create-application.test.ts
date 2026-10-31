@@ -11,7 +11,7 @@ import { resolve } from 'node:path'
 process.env.JOBHUNT_DB_PATH = ':memory:'
 
 const { useDatabase, closeDatabase } = await import('../server/database/index.ts')
-const { createApplication, getApplication, listApplications } = await import(
+const { createApplication, getApplication, listApplications, updateApplication } = await import(
   '../server/utils/applications.ts'
 )
 const { attachDocument, createDocument, documentsForApplication, listDocuments } = await import(
@@ -102,6 +102,28 @@ describe('createApplication', () => {
       .prepare('SELECT count(*) AS n FROM status_event WHERE application_id = ?')
       .get(id) as { n: number }
     expect(n.n).toBe(1)
+  })
+})
+
+describe('updateApplication', () => {
+  it('updates the owner\'s row', () => {
+    const id = createApplication(ownerId, input())
+    expect(updateApplication(ownerId, id, input({ jobReqId: '1693' }))).toBe(true)
+    expect(getApplication(ownerId, id)?.jobReqId).toBe('1693')
+  })
+
+  it('refuses another user\'s row and leaves it untouched', () => {
+    const id = createApplication(otherId, input())
+    expect(updateApplication(ownerId, id, input({ company: 'Hijacked' }))).toBe(false)
+    expect(getApplication(otherId, id)?.company).toBe('Acme')
+  })
+
+  it('closes out the next step when moved to a terminal status', () => {
+    const id = createApplication(ownerId, input({ nextStepDateTime: '2026-11-01 15:00:00' }))
+    updateApplication(ownerId, id, input({ statusId: rejected, nextStepDateTime: '2026-11-01 15:00:00' }))
+    const app = getApplication(ownerId, id)!
+    expect(app.nextStepId).toBe(none)
+    expect(app.nextStepDateTime).toBeNull()
   })
 })
 

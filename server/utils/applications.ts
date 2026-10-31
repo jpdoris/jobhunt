@@ -163,6 +163,51 @@ export function createApplication(
   return Number(lastInsertRowid)
 }
 
+/**
+ * Overwrites one application with `input` and reports whether a row changed.
+ * The edit counterpart of createApplication, kept beside it so the two column
+ * lists and the next-step close-out cannot drift apart.
+ *
+ * The user_id predicate is what stops one user editing another's row: a false
+ * return means "not yours or not there", and the caller answers 404 for both.
+ * Changing status_id fires the status_event trigger — never insert history by
+ * hand.
+ */
+export function updateApplication(
+  userId: number,
+  id: number,
+  input: ApplicationInput,
+  db: DB = useDatabase(),
+): boolean {
+  // Moving to a terminal status overrides whatever next step was submitted:
+  // closed means nothing is pending.
+  const nextStep = closedNextStepSql('@nextStepId', '@nextStepDateTime')
+
+  const { changes } = db
+    .prepare(
+      `UPDATE application SET
+         company = @company, role = @role, description = @description,
+         job_posting_link = @jobPostingLink, contact = @contact,
+         apply_date = @applyDate,
+         -- Set before status_id in the same statement so the trigger sees it.
+         status_changed_at = @statusChangedAt, status_id = @statusId,
+         next_step_id = ${nextStep.id},
+         next_step_date_time = ${nextStep.dateTime},
+         notes = @notes, angle = @angle, job_req_id = @jobReqId,
+         submitted_to_unemployment = @submittedToUnemployment
+       WHERE id = @id AND user_id = @userId`,
+    )
+    .run({
+      id,
+      userId,
+      ...input,
+      // Null means "now" — the trigger's COALESCE fills it in.
+      statusChangedAt: input.statusChangedAt ?? null,
+      submittedToUnemployment: Number(input.submittedToUnemployment),
+    })
+  return changes > 0
+}
+
 const SELECT = `
   SELECT
     a.id, a.company, a.role, a.description,

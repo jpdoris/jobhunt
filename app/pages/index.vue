@@ -104,15 +104,31 @@ function toggleMilestone(milestone: Milestone) {
   setQuery({ milestone: filters.value.milestone === milestone ? undefined : milestone })
 }
 
+/**
+ * Export columns as header + value pairs, so a column cannot land under the
+ * wrong header. `id` first so a re-import has a stable key to match on —
+ * company+role is not unique, since re-applying to the same role is normal. The
+ * long free text goes last, so the scannable columns stay to the left in a
+ * spreadsheet.
+ */
+const CSV_COLUMNS: [string, (a: Application) => unknown][] = [
+  ['id', (a) => a.id],
+  ['company', (a) => a.company],
+  ['role', (a) => a.role],
+  ['status', (a) => a.statusLabel],
+  ['next_step', (a) => a.nextStepLabel],
+  ['next_step_date_time', (a) => a.nextStepDateTime],
+  ['apply_date', (a) => a.applyDate],
+  ['job_posting_link', (a) => a.jobPostingLink],
+  ['job_req_id', (a) => a.jobReqId],
+  ['contact', (a) => a.contact],
+  ['submitted_to_unemployment', (a) => (a.submittedToUnemployment ? 1 : 0)],
+  ['angle', (a) => a.angle],
+  ['description', (a) => a.description],
+  ['notes', (a) => a.notes],
+]
+
 function exportCsv() {
-  // `id` first so a re-import has a stable key to match on — company+role is
-  // not unique, since re-applying to the same role is normal. The long free
-  // text goes last, so the scannable columns stay to the left in a spreadsheet.
-  const header = [
-    'id', 'company', 'role', 'status', 'next_step', 'next_step_date_time',
-    'apply_date', 'job_posting_link', 'job_req_id', 'contact', 'submitted_to_unemployment',
-    'angle', 'description', 'notes',
-  ]
   const escape = (v: unknown) => {
     const s = v === null || v === undefined ? '' : String(v)
     // Descriptions are pasted job postings: they carry commas, quotes and hard
@@ -120,17 +136,9 @@ function exportCsv() {
     return /["\r\n,]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
   }
   const lines = [
-    header.join(','),
+    CSV_COLUMNS.map(([name]) => name).join(','),
     // Exports the current filtered view, not the whole table (docs/PRD.md).
-    ...applications.value.map((a) =>
-      [
-        a.id, a.company, a.role, a.statusLabel, a.nextStepLabel, a.nextStepDateTime,
-        a.applyDate, a.jobPostingLink, a.jobReqId, a.contact, a.submittedToUnemployment ? 1 : 0,
-        a.angle, a.description, a.notes,
-      ]
-        .map(escape)
-        .join(','),
-    ),
+    ...applications.value.map((a) => CSV_COLUMNS.map(([, value]) => escape(value(a))).join(',')),
   ]
   const url = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/csv' }))
   const link = document.createElement('a')

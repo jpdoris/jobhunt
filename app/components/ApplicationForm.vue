@@ -25,7 +25,10 @@ const form = reactive({
   statusId: props.application?.statusId ?? props.statuses[0]?.id ?? 0,
   nextStepId:
     props.application?.nextStepId ??
-    props.nextSteps.find((n) => n.label === 'Awaiting response')?.id ??
+    // First option that means something is pending — same default as app:add.
+    // A flag, never a label (CLAUDE.md rule 3); nextSteps arrive active-only,
+    // in sort order.
+    props.nextSteps.find((n) => !n.isNone)?.id ??
     props.nextSteps[0]?.id ??
     0,
   nextStepLocal: utcToLocalInput(props.application?.nextStepDateTime ?? null),
@@ -68,27 +71,17 @@ async function save() {
   error.value = ''
   pending.value = true
   try {
+    // Every field goes as-is except the two local date-times, which the API
+    // takes as UTC under different names.
+    const { nextStepLocal, statusChangedLocal, ...fields } = form
     const body = {
-      company: form.company,
-      role: form.role,
-      statusId: form.statusId,
-      nextStepId: form.nextStepId,
+      ...fields,
       // Omitted unless the status moved and a time was given — the trigger then
       // stamps "now" as usual.
       statusChangedAt:
-        statusChanged.value && form.statusChangedLocal
-          ? localInputToUtc(form.statusChangedLocal)
-          : undefined,
+        statusChanged.value && statusChangedLocal ? localInputToUtc(statusChangedLocal) : undefined,
       // Converted from the viewer's zone to UTC here, at the edge.
-      nextStepDateTime: localInputToUtc(form.nextStepLocal),
-      applyDate: form.applyDate,
-      jobPostingLink: form.jobPostingLink,
-      contact: form.contact,
-      submittedToUnemployment: form.submittedToUnemployment,
-      description: form.description,
-      notes: form.notes,
-      angle: form.angle,
-      jobReqId: form.jobReqId,
+      nextStepDateTime: localInputToUtc(nextStepLocal),
     }
     if (editing.value) {
       await $fetch(`/api/applications/${props.application!.id}`, { method: 'PUT', body })

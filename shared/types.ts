@@ -1,5 +1,9 @@
 /** Shared between server and client. Mirrors docs/schema.sql. */
 
+// Type-only, so erased at runtime: zod stays out of the client bundle, and
+// scripts importing this file under plain Node never load it.
+import type { ApplicationInput } from './schemas.ts'
+
 export interface LookupOption {
   id: number
   label: string
@@ -52,31 +56,20 @@ export interface MilestoneCounts extends Record<Milestone, number> {
   total: number
 }
 
-export interface Application {
+/**
+ * An application as the API returns it: every input field (ApplicationInput,
+ * shared/schemas.ts — the one place a column's field is declared) plus what the
+ * server joins in or stamps. Add a column to the schema, not here.
+ */
+export type Application = Omit<ApplicationInput, 'statusChangedAt'> & {
   id: number
-  company: string
-  role: string | null
-  description: string | null
-  jobPostingLink: string | null
-  contact: string | null
-  /** Floating calendar date `YYYY-MM-DD`. Never timezone-converted. */
-  applyDate: string | null
-  statusId: number
   statusLabel: string
   statusTone: StatusTone
   isTerminal: boolean
-  nextStepId: number
   nextStepLabel: string
-  /** UTC instant `YYYY-MM-DD HH:MM:SS`. Always rendered in the viewer's zone. */
-  nextStepDateTime: string | null
-  /** When the current status began; null if the timeline is empty. */
+  /** When the current status began; null if the timeline is empty. Optional on
+   *  input (null means "now"), always present on output. */
   statusChangedAt: string | null
-  notes: string | null
-  /** Which version of the pitch went out, e.g. "Senior Vue frontend". */
-  angle: string | null
-  /** The employer's own id for the posting, e.g. "1693". */
-  jobReqId: string | null
-  submittedToUnemployment: boolean
   createdAt: string
   updatedAt: string
 }
